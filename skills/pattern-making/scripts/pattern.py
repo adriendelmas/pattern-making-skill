@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Pattern-making engine: parametric blocks, seam allowances, notches, unfolding, grading,
 export to SVG (1:1 scale), modern mm DXF and supported outline-transfer JSON.
-Core math uses the standard library; validated export requires ezdxf and Shapely.
+Core drafting math uses the standard library; neck validation uses Shapely,
+and validated export requires ezdxf and Shapely.
 
 Inputs in cm, SVG/DXF/CLO3D outputs in mm.
 
@@ -1527,7 +1528,8 @@ def seg_dist(q, a, b):
 def neck_check(piece):
     """A piece pinched between two wide parts (a lining strip left between a facing and a seam) cannot be sewn
     or worn. Flags any chord narrower than MIN_NECK_CM that splits the piece into two parts both larger than
-    MIN_SIDE_AREA. Narrow strips (bindings, flies, fourchettes) and narrow protrusions (fingers) pass."""
+    MIN_SIDE_AREA and broad enough to retain positive area after a MIN_NECK_CM / 2 inward buffer (Shapely).
+    Narrow strips (bindings, flies, fourchettes) and narrow protrusions (fingers) pass."""
     closed = dict(piece, outline=[q for q in piece["outline"] if not q.get("dart")])   # darts are sewn closed
     pts = resample(outline(closed, 16))
     n = len(pts)
@@ -1547,8 +1549,16 @@ def neck_check(piece):
             mid = ((pts[i][0] + pts[j][0]) / 2, (pts[i][1] + pts[j][1]) / 2)
             if not inside_polygon(mid, pts):
                 continue
-            if min(abs(area(pts[i:j + 1])), abs(area(pts[j:] + pts[:i + 1]))) > MIN_SIDE_AREA:
-                worst = d
+            sides = (pts[i:j + 1], pts[j:] + pts[:i + 1])
+            if min(abs(area(side)) for side in sides) > MIN_SIDE_AREA:
+                from shapely.geometry import Polygon
+                parts = [Polygon(side) for side in sides]
+                # Area alone mistakes long strips for broad hosts. Each side must have
+                # room beyond the neck's half-width; a uniformly narrow side erodes away.
+                # Ignore numerical area slivers at exactly MIN_NECK_CM (cm², as in validation.polygon).
+                # Invalid sampled splits retain the old rejection, never imply a repair.
+                if all(not part.is_valid or part.buffer(-MIN_NECK_CM / 2).area > 1e-9 for part in parts):
+                    worst = d
     if worst is None:
         return None
     return check(f"{piece['name']}: narrowest passage between two wide parts (cm)", worst, MIN_NECK_CM,
