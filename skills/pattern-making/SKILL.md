@@ -76,8 +76,11 @@ an absent workflow sidecar.
 4. Preserve the full original profile, projection, source IDs, unit/status records and hashes privately,
    including every unmapped field. Verify them with `verify_profile` / `verify_projection` and externally
    retained expected hashes. Build the workflow's narrower cm/mm body subset only from supported projected
-   inputs. Compare every supplied workflow value, unit and UID against the projection; declare any conversion
-   and its provenance separately. Do not silently feed defaults through the bare block/garment CLI.
+   inputs. Compare every supplied workflow value, unit, UID, semantic kind and landmark against the
+   trusted recipe contract and projection. Projection contracts are caller-declared, not engine-verified:
+   a `site_scalar` carrying a `cm` label is not a length and must not be relabelled from its field name.
+   Declare any conversion and its provenance separately. Do not silently feed defaults through the bare
+   block/garment CLI.
    Use one shared resolved body across an outfit and the same `profile_id` for all components of a proposal.
    Across separate garment proposals, retain the same body identity/hash and check overlapping projections
    agree. Finished dimensions and ease remain separate per garment.
@@ -87,6 +90,9 @@ an absent workflow sidecar.
    landmarks. Disclose unused workflow parameters/dimensions in `unused` with reasons; keep unsupported
    full-catalog fields in the original private profile rather than coercing them into body lengths.
    Family/style blueprints and knowledge sheets are inventory guidance, not whole-garment implementations.
+   Reject a changed immutable baseline target instead of silently substituting legacy parameters. Check
+   redundant datum statements for internal consistency; retain explicitly disclosed baseline exceptions
+   rather than claiming that standing proxies and measured tape paths are anatomically interchangeable.
 6. Keep `profile.template.rule_state: external-unintegrated` and `custom_allowed: null` for external data.
    Declare only the projected parameter subset and its units in the workflow template; this is not a copy
    of unknown raw-unit metadata. An exact standard selection uses its model ID as `row_id` and freezes that
@@ -100,10 +106,17 @@ an absent workflow sidecar.
    body target and recheck all projected inputs. For declarative recipes, supply every frozen parameter
    and design dimension to `workflow.extend(proposal, target)`, then export and verify again. A supported
    procedural recipe may instead rebuild the complete proposal through its parameterized entry point;
-   retain that generator's source hash, declared input coverage and joint receipt, rerun all saved-file
-   checks, and compare cross-size allowances, marks, inventory and dependent components. Do not pretend
+   retain that generator's source hash, declared input coverage and joint receipt. Its caller-side verifier
+   must replay the validated request and bind rebuilt parameters, the complete recipe and full named
+   assembly contracts before checking saved coordinates. Preserve endpoint identities, multiplicity,
+   fixed ease/stretch and supplemental relationships outside the native port subset. Primary girths or
+   refreshed outer hashes alone cannot detect a changed datum or deleted supplemental seam. Rerun all
+   saved-file checks and compare cross-size allowances, marks, inventory and dependent components. Do not pretend
    `extend` can propagate a body change through already-resolved literal coordinates. Report fields the
-   garment recipe cannot model explicitly; never silently ignore a required input. Neither changing a
+   garment recipe cannot model explicitly; never silently ignore a required input. Demonstrate each
+   required input's geometric effect or source-bound feasibility constraint, with a compatible coupled
+   positive control. A posthoc change in reported ease alone is not propagation, and a recipe-specific
+   engineering relationship is not a universal anatomical rule. Neither changing a
    size label nor stretching the whole drawing is size extension. Reexport only through the verified
    workflow bundle.
 8. Keep a private joint receipt binding the original lock, source evidence, catalog profile/projection,
@@ -113,7 +126,14 @@ an absent workflow sidecar.
    and a caller-side replay/input comparison to check that boundary. Do not add unsupported schema fields
    or replace original catalog hashes with workflow hashes. Hashes establish consistency, not source
    authorship, anatomy, brand permission, sewability or physical fit. Report an unsupported mapping/contract
-   as a gap instead of bypassing checks.
+   as a gap instead of bypassing checks. Keep historical bootstrap/parameter fingerprints separate from
+   current source bindings. Resolve receipt locators relative to the actual output directory and verify
+   their targets and hashes, including non-default output depths. Exclude CLI-owned final-message files
+   and active logs from manifests sealed before the process exits.
+9. In caller APIs, validate storage-ID type/grammar and resolved path containment before any input-derived
+   proposal, output or diagnostic write, including failure handlers and existing symlink boundaries.
+   An eventual validation error does not undo an earlier out-of-scope write. Preserve malformed tokens
+   as error data instead of repairing them into accepted IDs; retain exact catalog identities separately.
 
 Keep real catalog data, locks, requests, full profiles, projections and orchestration evidence outside the
 public repository. The exercised private composition is a small synthetic attachment coupon using a real
