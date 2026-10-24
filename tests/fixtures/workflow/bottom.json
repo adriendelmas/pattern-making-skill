@@ -1,0 +1,514 @@
+{
+  "schema": "component-workflow/v1",
+  "status": "proposal",
+  "id": "synthetic-bottoms",
+  "title": "SYNTHETIC attachment coupons \u2014 not a complete garment",
+  "analysis": {
+    "sources": [
+      {
+        "id": "synthetic-brief",
+        "identity": "invented test brief; no photo"
+      }
+    ],
+    "observations": [],
+    "assumptions": [
+      {
+        "source_id": "synthetic-brief",
+        "description": "Rectangle coupons, not garment panels",
+        "uncertainty": "deliberate test geometry"
+      }
+    ],
+    "landmarks": [],
+    "scale": {
+      "kind": "uncalibrated",
+      "source_id": "synthetic-brief"
+    },
+    "size_basis": "nominal engineering selection; no inferred wearer dimensions"
+  },
+  "profile": {
+    "id": "synthetic-profile",
+    "template": {
+      "provider": "synthetic-test",
+      "model_id": "coupon-model",
+      "template_id": "coupon-template",
+      "source": "invented portable test rules",
+      "rule_state": "synthetic-declared",
+      "custom_allowed": true,
+      "parameters": {
+        "span": {
+          "uid": "RAW-SPAN-UID",
+          "unit": "mm",
+          "required": true
+        }
+      },
+      "standard_rows": {
+        "reference": {
+          "span": 200
+        }
+      }
+    },
+    "selection": {
+      "kind": "standard",
+      "row_id": "reference"
+    },
+    "parameters": {
+      "span": {
+        "value": 200,
+        "unit": "mm",
+        "source": "synthetic independent drafting brief",
+        "basis": "engineering-selected",
+        "kind": "body_length",
+        "uid": "RAW-SPAN-UID"
+      }
+    },
+    "unused": {}
+  },
+  "design": {
+    "dimensions": {
+      "attachment": {
+        "value": 20,
+        "unit": "cm",
+        "source": "synthetic independent drafting brief",
+        "basis": "engineering-selected",
+        "kind": "finished_length"
+      },
+      "length": {
+        "value": 30,
+        "unit": "cm",
+        "source": "synthetic independent drafting brief",
+        "basis": "engineering-selected",
+        "kind": "finished_length"
+      },
+      "accessory_depth": {
+        "value": 6,
+        "unit": "cm",
+        "source": "synthetic independent drafting brief",
+        "basis": "engineering-selected",
+        "kind": "finished_length"
+      },
+      "allowance": {
+        "value": 1,
+        "unit": "cm",
+        "source": "synthetic independent drafting brief",
+        "basis": "engineering-selected",
+        "kind": "seam_allowance"
+      }
+    },
+    "constraints": [
+      {
+        "id": "body_to_attachment",
+        "left": {
+          "op": "param",
+          "id": "finished.attachment"
+        },
+        "right": {
+          "op": "param",
+          "id": "body.span"
+        }
+      }
+    ],
+    "material": {
+      "id": "synthetic-woven",
+      "source": "test brief",
+      "description": "nonstretch coupon"
+    },
+    "unused": {}
+  },
+  "construction": {
+    "family": "bottoms",
+    "style": "skirt",
+    "features": {
+      "paneling": "front-back",
+      "alternative_roles": [],
+      "sleeves": "none",
+      "neck": "none",
+      "cuffs": false,
+      "waist": "band",
+      "pockets": "none",
+      "lining": false,
+      "closure": "none",
+      "placket": false,
+      "hem": "turned",
+      "extra_roles": []
+    },
+    "support": "synthetic-attachment-control",
+    "recipe_id": "named-coupon-recipe/v1",
+    "limitations": [
+      "No whole-garment drafting or fit claim"
+    ]
+  },
+  "components": [
+    {
+      "id": "panel",
+      "role": "front",
+      "profile_id": "synthetic-profile",
+      "pieces": [
+        {
+          "name": "Panel",
+          "quantity": 1
+        }
+      ],
+      "depends_on": [
+        "finished.allowance",
+        "finished.attachment",
+        "finished.length"
+      ],
+      "ports": [
+        {
+          "id": "opening",
+          "purpose": "waist",
+          "quantity": 1,
+          "chain": [
+            {
+              "piece": "Panel",
+              "from": "a",
+              "to": "b"
+            }
+          ],
+          "target": "finished.attachment",
+          "deductions": [],
+          "landmarks": [
+            {
+              "id": "start",
+              "after": 0
+            },
+            {
+              "id": "end",
+              "after": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "role": "back",
+      "profile_id": "synthetic-profile",
+      "pieces": [
+        {
+          "name": "Back",
+          "quantity": 1
+        }
+      ],
+      "depends_on": [
+        "finished.allowance",
+        "finished.attachment",
+        "finished.length"
+      ],
+      "ports": []
+    },
+    {
+      "id": "companion",
+      "role": "waistband",
+      "profile_id": "synthetic-profile",
+      "pieces": [
+        {
+          "name": "Companion",
+          "quantity": 1
+        }
+      ],
+      "depends_on": [
+        "finished.accessory_depth",
+        "finished.allowance",
+        "finished.attachment"
+      ],
+      "ports": [
+        {
+          "id": "join",
+          "purpose": "waist",
+          "quantity": 1,
+          "chain": [
+            {
+              "piece": "Companion",
+              "from": "a",
+              "to": "b"
+            }
+          ],
+          "target": "finished.attachment",
+          "deductions": [],
+          "landmarks": [
+            {
+              "id": "start",
+              "after": 0
+            },
+            {
+              "id": "end",
+              "after": 1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "attachments": [
+    {
+      "id": "paired-attachment",
+      "kind": "waist",
+      "a": "panel.opening",
+      "b": "companion.join",
+      "relation": {
+        "mode": "equal"
+      },
+      "landmarks": [
+        "start",
+        "end"
+      ]
+    }
+  ],
+  "recipe": {
+    "pieces": [
+      {
+        "name": "Panel",
+        "cut": "1x",
+        "allowance": {
+          "op": "param",
+          "id": "finished.allowance"
+        },
+        "outline": [
+          {
+            "name": "a",
+            "p": [
+              0,
+              0
+            ]
+          },
+          {
+            "name": "b",
+            "p": [
+              {
+                "op": "param",
+                "id": "finished.attachment"
+              },
+              0
+            ]
+          },
+          {
+            "name": "c",
+            "p": [
+              {
+                "op": "param",
+                "id": "finished.attachment"
+              },
+              {
+                "op": "param",
+                "id": "finished.length"
+              }
+            ]
+          },
+          {
+            "name": "d",
+            "p": [
+              0,
+              {
+                "op": "param",
+                "id": "finished.length"
+              }
+            ]
+          }
+        ],
+        "grain": [
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            4
+          ]
+        ],
+        "notches": [
+          {
+            "edge": 0,
+            "d": 2
+          }
+        ],
+        "lines": [
+          [
+            [
+              2,
+              1
+            ],
+            [
+              4,
+              1
+            ]
+          ]
+        ],
+        "buttons": [
+          [
+            5,
+            2
+          ]
+        ]
+      },
+      {
+        "name": "Back",
+        "cut": "1x",
+        "allowance": {
+          "op": "param",
+          "id": "finished.allowance"
+        },
+        "outline": [
+          {
+            "name": "a",
+            "p": [
+              0,
+              0
+            ]
+          },
+          {
+            "name": "b",
+            "p": [
+              {
+                "op": "param",
+                "id": "finished.attachment"
+              },
+              0
+            ]
+          },
+          {
+            "name": "c",
+            "p": [
+              {
+                "op": "param",
+                "id": "finished.attachment"
+              },
+              {
+                "op": "param",
+                "id": "finished.length"
+              }
+            ]
+          },
+          {
+            "name": "d",
+            "p": [
+              0,
+              {
+                "op": "param",
+                "id": "finished.length"
+              }
+            ]
+          }
+        ],
+        "grain": [
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            4
+          ]
+        ],
+        "notches": [
+          {
+            "edge": 0,
+            "d": 2
+          }
+        ],
+        "lines": [
+          [
+            [
+              2,
+              1
+            ],
+            [
+              4,
+              1
+            ]
+          ]
+        ],
+        "buttons": [
+          [
+            5,
+            2
+          ]
+        ]
+      },
+      {
+        "name": "Companion",
+        "cut": "1x",
+        "allowance": {
+          "op": "param",
+          "id": "finished.allowance"
+        },
+        "outline": [
+          {
+            "name": "a",
+            "p": [
+              0,
+              0
+            ]
+          },
+          {
+            "name": "b",
+            "p": [
+              {
+                "op": "param",
+                "id": "finished.attachment"
+              },
+              0
+            ]
+          },
+          {
+            "name": "c",
+            "p": [
+              {
+                "op": "param",
+                "id": "finished.attachment"
+              },
+              {
+                "op": "param",
+                "id": "finished.accessory_depth"
+              }
+            ]
+          },
+          {
+            "name": "d",
+            "p": [
+              0,
+              {
+                "op": "param",
+                "id": "finished.accessory_depth"
+              }
+            ]
+          }
+        ],
+        "grain": [
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            4
+          ]
+        ],
+        "notches": [
+          {
+            "edge": 0,
+            "d": 2
+          }
+        ],
+        "lines": [
+          [
+            [
+              2,
+              1
+            ],
+            [
+              4,
+              1
+            ]
+          ]
+        ],
+        "buttons": [
+          [
+            5,
+            2
+          ]
+        ]
+      }
+    ]
+  }
+}

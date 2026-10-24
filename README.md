@@ -59,6 +59,31 @@ revision has **not** been tested in a CLO3D runtime. Validate garment fit and co
 
 ## Developer checks
 
+The reusable [component workflow](skills/pattern-making/references/workflow-and-components.md) adds
+strict [proposal/target/bundle schemas](skills/pattern-making/references/workflow.schema.json), explicit
+body/template provenance, conditional component inventory, geometry-derived paired seams and hash-bound
+verification/reexport. Named recipes use typed dimension expressions for coordinated size changes.
+External catalog rules remain unintegrated; custom-target geometry checks do not establish brand compatibility.
+
+These commands exercise invented attachment coupons with an existing export-capable interpreter:
+
+```sh
+python skills/pattern-making/scripts/workflow.py blueprints
+python skills/pattern-making/scripts/workflow.py validate tests/fixtures/workflow/top.json
+python skills/pattern-making/scripts/workflow.py export tests/fixtures/workflow/top.json --out /tmp/workflow-top
+python skills/pattern-making/scripts/workflow.py verify /tmp/workflow-top/workflow-bundle.json
+python skills/pattern-making/scripts/workflow.py extend tests/fixtures/workflow/top.json --target tests/fixtures/workflow/custom-target.json --out /tmp/workflow-custom.json
+python skills/pattern-making/scripts/workflow.py export /tmp/workflow-custom.json --out /tmp/workflow-custom
+python skills/pattern-making/scripts/workflow.py reexport /tmp/workflow-top/workflow-bundle.json --out /tmp/workflow-roundtrip
+python tests/run_workflow_controls.py --out /tmp/workflow-controls
+```
+
+Choose fresh paths. The runner retains raw CLI logs, exact exit codes and saved SVG/mmDXF readbacks in
+`results.json`. The controls cover four construction families and six attachment purposes; they are not
+whole-garment recipes. Real catalog data and the six user garment regenerations remain separate integration.
+Legacy bare-piece commands cannot certify a missing workflow sidecar. All exports remain 2D only and need
+visual/toile review.
+
 Install pytest in the same project environment. Tests call current code in temporary
 folders and reopen actual exports; they have no dependency on private audit evidence.
 

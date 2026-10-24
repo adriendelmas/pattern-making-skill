@@ -1,0 +1,9 @@
+{
+  "source": "Independent synthetic semantic review fixtures for S1 and L1-L5; original filenames and content hashes are retained below",
+  "files": {
+    "curve-saved-contract.json": "a48cb104a9aa789c2f60ad00b15d226efcaa47ee1faac6babb79b193f87cbed8",
+    "allowance-baseline.json": "edeff38284ff663c06be0c579d12e897e633ba081519ac305102138aae3a33a7",
+    "allowance-extension-target.json": "a4043db79814363bef0ff9cb266f96724ba5aeea607ad6dc8f8b62b8f7cee356",
+    "zero-calibration.json": "088e2b6a17e5b12714ec4bfb7d7e86ac4fcdf58a1f52390c664b01bc2d8ced64"
+  }
+}

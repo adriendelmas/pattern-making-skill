@@ -1,0 +1,46 @@
+{
+  "schema": "component-workflow-target/v1",
+  "selection": {
+    "kind": "custom-target"
+  },
+  "parameters": {
+    "span": {
+      "value": 237,
+      "unit": "mm",
+      "source": "synthetic independent drafting brief",
+      "basis": "engineering-selected",
+      "kind": "body_length",
+      "uid": "RAW-SPAN-UID"
+    }
+  },
+  "dimensions": {
+    "attachment": {
+      "value": 23.7,
+      "unit": "cm",
+      "source": "synthetic independent drafting brief",
+      "basis": "engineering-selected",
+      "kind": "finished_length"
+    },
+    "length": {
+      "value": 60,
+      "unit": "cm",
+      "source": "synthetic independent drafting brief",
+      "basis": "engineering-selected",
+      "kind": "finished_length"
+    },
+    "accessory_depth": {
+      "value": 6,
+      "unit": "cm",
+      "source": "synthetic independent drafting brief",
+      "basis": "engineering-selected",
+      "kind": "finished_length"
+    },
+    "allowance": {
+      "value": 1,
+      "unit": "cm",
+      "source": "synthetic independent drafting brief",
+      "basis": "engineering-selected",
+      "kind": "seam_allowance"
+    }
+  }
+}

@@ -42,6 +42,28 @@ Search construction knowledge with `python /path/to/skill/scripts/pattern.py kb 
 
 ## Draft and validate
 
+For reusable component coordination and size extension, read
+[workflow-and-components.md](references/workflow-and-components.md) and the executable
+[schemas](references/workflow.schema.json). Use `scripts/workflow.py validate`, `export`, `extend`,
+`verify` and `reexport` for its mandatory profile/inventory/paired-seam sidecar. This path accepts
+untrusted structured analysis and authored named-piece recipes; it does not call an image API or
+integrate a real catalog. It distinguishes selected standard rows, custom targets and unverified
+external template rules. Bare `pattern.py piece` does not enforce an absent workflow sidecar.
+
+Exercised synthetic controls (from the repository root, with an existing export-capable interpreter):
+
+```sh
+python skills/pattern-making/scripts/workflow.py validate tests/fixtures/workflow/top.json
+python skills/pattern-making/scripts/workflow.py export tests/fixtures/workflow/top.json --out /tmp/workflow-top
+python skills/pattern-making/scripts/workflow.py verify /tmp/workflow-top/workflow-bundle.json
+python skills/pattern-making/scripts/workflow.py extend tests/fixtures/workflow/top.json --target tests/fixtures/workflow/custom-target.json --out /tmp/workflow-custom.json
+python tests/run_workflow_controls.py --out /tmp/workflow-controls
+```
+
+Use fresh output paths. These fixtures are attachment coupons across construction families, not
+complete garments. `proposal-ready` is distinct from `exported-2D-verified`; physical fit remains
+unapproved. Real catalog integration and user garment regeneration require separate work.
+
 1. Print the body table with `measurements --body women --size 38`, then supply measured/selected
    overrides in a JSON file. Unsupported keys fail rather than silently disappearing.
 2. Draft a block, supported outerwear spec, or explicit named-piece recipe. Coordinates in editable

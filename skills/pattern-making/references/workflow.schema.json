@@ -1,0 +1,1502 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Component workflow v1 structural schemas",
+  "$comment": "Structural interface only. workflow.py additionally checks provenance, finite/positive values, IDs, dependency units, inventory, geometry and artifact readbacks. No catalog validation is implied.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/proposal"
+    },
+    {
+      "$ref": "#/$defs/target"
+    },
+    {
+      "$ref": "#/$defs/bundle"
+    }
+  ],
+  "$defs": {
+    "quantity": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "enum": [
+            "cm",
+            "mm",
+            "ratio"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "enum": [
+            "observed",
+            "inferred",
+            "nominal",
+            "engineering-selected"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "body_length",
+            "body_girth",
+            "finished_length",
+            "finished_girth",
+            "seam_allowance",
+            "closure_overlap",
+            "dart_takeup",
+            "pleat_takeup",
+            "ease",
+            "shrink",
+            "stretch",
+            "gather"
+          ]
+        },
+        "range": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "value",
+        "unit",
+        "source",
+        "basis",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "profileQuantity": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "enum": [
+            "cm",
+            "mm",
+            "ratio"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "enum": [
+            "observed",
+            "inferred",
+            "nominal",
+            "engineering-selected"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "body_length",
+            "body_girth",
+            "finished_length",
+            "finished_girth",
+            "seam_allowance",
+            "closure_overlap",
+            "dart_takeup",
+            "pleat_takeup",
+            "ease",
+            "shrink",
+            "stretch",
+            "gather"
+          ]
+        },
+        "range": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "uid": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "value",
+        "unit",
+        "source",
+        "basis",
+        "kind",
+        "uid"
+      ],
+      "additionalProperties": false
+    },
+    "expression": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "param"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "literal"
+            },
+            "value": {
+              "type": "number"
+            },
+            "unit": {
+              "enum": [
+                "cm",
+                "mm",
+                "ratio"
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "value",
+            "unit"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "enum": [
+                "add",
+                "sub",
+                "mul",
+                "div"
+              ]
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "coordinate": {
+      "oneOf": [
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "point": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/coordinate"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "node": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "p": {
+          "$ref": "#/$defs/point"
+        },
+        "c": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "dart": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "p"
+      ],
+      "additionalProperties": false
+    },
+    "hole": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          },
+          "minItems": 3
+        }
+      },
+      "required": [
+        "name",
+        "outline"
+      ],
+      "additionalProperties": false
+    },
+    "piece": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cut": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allowance": {
+          "$ref": "#/$defs/coordinate"
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          },
+          "minItems": 3
+        },
+        "allowances": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/coordinate"
+          }
+        },
+        "grain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "notches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/notch"
+          },
+          "minItems": 0
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/point"
+            },
+            "minItems": 2
+          },
+          "minItems": 0
+        },
+        "buttons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          },
+          "minItems": 0
+        },
+        "fold": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 0
+        },
+        "darts_in": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/point"
+            },
+            "minItems": 3,
+            "maxItems": 4
+          },
+          "minItems": 0
+        },
+        "holes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hole"
+          },
+          "minItems": 0
+        },
+        "within": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "cut",
+        "allowance",
+        "outline"
+      ],
+      "additionalProperties": false
+    },
+    "notch": {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "d": {
+          "$ref": "#/$defs/coordinate"
+        },
+        "t": {
+          "$ref": "#/$defs/coordinate"
+        }
+      },
+      "required": [
+        "edge"
+      ],
+      "additionalProperties": false
+    },
+    "analysis": {
+      "type": "object",
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "identity": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "identity"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/observation"
+          },
+          "minItems": 0
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/observation"
+          },
+          "minItems": 0
+        },
+        "landmarks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "range": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "unit": {
+                "enum": [
+                  "ratio",
+                  "cm",
+                  "mm"
+                ]
+              },
+              "basis": {
+                "enum": [
+                  "observed",
+                  "inferred"
+                ]
+              },
+              "uncertainty": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "source_id",
+              "description",
+              "range",
+              "unit",
+              "basis",
+              "uncertainty"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "scale": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "uncalibrated"
+                },
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "source_id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "measured-coplanar"
+                },
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reference": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "length": {
+                  "$ref": "#/$defs/calibration_length"
+                },
+                "perspective": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "source_id",
+                "reference",
+                "length",
+                "perspective"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "size_basis": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "sources",
+        "observations",
+        "assumptions",
+        "landmarks",
+        "scale",
+        "size_basis"
+      ],
+      "additionalProperties": false
+    },
+    "observation": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uncertainty": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "source_id",
+        "description",
+        "uncertainty"
+      ],
+      "additionalProperties": false
+    },
+    "selection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "standard"
+            },
+            "row_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "row_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "custom-target"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "template": {
+          "$ref": "#/$defs/template"
+        },
+        "selection": {
+          "$ref": "#/$defs/selection"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/profileQuantity"
+          }
+        },
+        "unused": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "id",
+        "template",
+        "selection",
+        "parameters",
+        "unused"
+      ],
+      "additionalProperties": false
+    },
+    "template": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "template_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rule_state": {
+          "enum": [
+            "synthetic-declared",
+            "external-unintegrated"
+          ]
+        },
+        "custom_allowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "uid": {
+                "type": "string",
+                "minLength": 1
+              },
+              "unit": {
+                "enum": [
+                  "cm",
+                  "mm"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "uid",
+              "unit",
+              "required"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "standard_rows": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "required": [
+        "provider",
+        "model_id",
+        "template_id",
+        "source",
+        "rule_state",
+        "custom_allowed",
+        "parameters",
+        "standard_rows"
+      ],
+      "additionalProperties": false
+    },
+    "design": {
+      "type": "object",
+      "properties": {
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/quantity"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "left": {
+                "$ref": "#/$defs/expression"
+              },
+              "right": {
+                "$ref": "#/$defs/expression"
+              }
+            },
+            "required": [
+              "id",
+              "left",
+              "right"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "material": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "id",
+            "source",
+            "description"
+          ],
+          "additionalProperties": false
+        },
+        "unused": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "dimensions",
+        "constraints",
+        "material",
+        "unused"
+      ],
+      "additionalProperties": false
+    },
+    "construction": {
+      "type": "object",
+      "properties": {
+        "family": {
+          "enum": [
+            "tops",
+            "bottoms",
+            "one-piece",
+            "outerwear"
+          ]
+        },
+        "style": {
+          "type": "string",
+          "minLength": 1
+        },
+        "features": {
+          "$ref": "#/$defs/features"
+        },
+        "support": {
+          "enum": [
+            "synthetic-attachment-control",
+            "authored-named-piece-recipe",
+            "inventory-only"
+          ]
+        },
+        "recipe_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "family",
+        "style",
+        "features",
+        "support",
+        "recipe_id",
+        "limitations"
+      ],
+      "additionalProperties": false
+    },
+    "features": {
+      "type": "object",
+      "properties": {
+        "paneling": {
+          "enum": [
+            "front-back",
+            "alternative"
+          ]
+        },
+        "alternative_roles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "sleeves": {
+          "enum": [
+            "none",
+            "set-in",
+            "raglan"
+          ]
+        },
+        "neck": {
+          "enum": [
+            "none",
+            "facing",
+            "collar",
+            "collar-stand",
+            "hood",
+            "rib"
+          ]
+        },
+        "cuffs": {
+          "type": "boolean"
+        },
+        "waist": {
+          "enum": [
+            "none",
+            "band",
+            "facing",
+            "elastic"
+          ]
+        },
+        "pockets": {
+          "enum": [
+            "none",
+            "patch",
+            "inseam",
+            "welt"
+          ]
+        },
+        "lining": {
+          "type": "boolean"
+        },
+        "closure": {
+          "enum": [
+            "none",
+            "open",
+            "buttons",
+            "zip"
+          ]
+        },
+        "placket": {
+          "type": "boolean"
+        },
+        "hem": {
+          "enum": [
+            "turned",
+            "band",
+            "raw"
+          ]
+        },
+        "extra_roles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "paneling",
+        "alternative_roles",
+        "sleeves",
+        "neck",
+        "cuffs",
+        "waist",
+        "pockets",
+        "lining",
+        "closure",
+        "placket",
+        "hem",
+        "extra_roles"
+      ],
+      "additionalProperties": false
+    },
+    "component": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pieces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "name",
+              "quantity"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/port"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "profile_id",
+        "pieces",
+        "depends_on",
+        "ports"
+      ],
+      "additionalProperties": false
+    },
+    "port": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "enum": [
+            "armhole",
+            "neck",
+            "cuff",
+            "waist",
+            "closure",
+            "pocket",
+            "side",
+            "shoulder",
+            "inseam",
+            "custom"
+          ]
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          },
+          "minItems": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deductions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deduction"
+          },
+          "minItems": 0
+        },
+        "landmarks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "after": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "id",
+              "after"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "purpose",
+        "quantity",
+        "chain",
+        "target",
+        "deductions",
+        "landmarks"
+      ],
+      "additionalProperties": false
+    },
+    "edge": {
+      "type": "object",
+      "properties": {
+        "piece": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "piece",
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    },
+    "deduction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "dart"
+            },
+            "segment": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "dart_index": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "kind",
+            "segment",
+            "target",
+            "source",
+            "dart_index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "pleat",
+                "overlap"
+              ]
+            },
+            "segment": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "from": {
+              "type": "string",
+              "minLength": 1
+            },
+            "to": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "segment",
+            "target",
+            "source",
+            "from",
+            "to"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "attachment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "armhole",
+            "neck",
+            "cuff",
+            "waist",
+            "closure",
+            "pocket",
+            "side",
+            "shoulder",
+            "inseam",
+            "custom"
+          ]
+        },
+        "a": {
+          "type": "string",
+          "minLength": 1
+        },
+        "b": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relation": {
+          "$ref": "#/$defs/relation"
+        },
+        "landmarks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "a",
+        "b",
+        "relation",
+        "landmarks"
+      ],
+      "additionalProperties": false
+    },
+    "relation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "equal"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "enum": [
+                "ease",
+                "stretch",
+                "gather"
+              ]
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "material_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "mode",
+            "target",
+            "reason",
+            "material_id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "proposal": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "component-workflow/v1"
+        },
+        "status": {
+          "const": "proposal"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "analysis": {
+          "$ref": "#/$defs/analysis"
+        },
+        "profile": {
+          "$ref": "#/$defs/profile"
+        },
+        "design": {
+          "$ref": "#/$defs/design"
+        },
+        "construction": {
+          "$ref": "#/$defs/construction"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          },
+          "minItems": 0
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attachment"
+          },
+          "minItems": 0
+        },
+        "recipe": {
+          "type": "object",
+          "properties": {
+            "pieces": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/piece"
+              },
+              "minItems": 0
+            }
+          },
+          "required": [
+            "pieces"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema",
+        "status",
+        "id",
+        "title",
+        "analysis",
+        "profile",
+        "design",
+        "construction",
+        "components",
+        "attachments",
+        "recipe"
+      ],
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "component-workflow-target/v1"
+        },
+        "selection": {
+          "$ref": "#/$defs/selection"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/profileQuantity"
+          }
+        },
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/quantity"
+          }
+        }
+      },
+      "required": [
+        "schema",
+        "selection",
+        "parameters",
+        "dimensions"
+      ],
+      "additionalProperties": false
+    },
+    "bundle": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "component-workflow-bundle/v1"
+        },
+        "status": {
+          "const": "exported-2D-verified"
+        },
+        "fit_status": {
+          "const": "physical-fit-not-approved"
+        },
+        "contract_sha256": {
+          "type": "string",
+          "minLength": 1
+        },
+        "engine_sources": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "artifacts": {
+          "type": "object",
+          "properties": {
+            "workflow.json": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pieces_one.json": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pattern.svg": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pattern_one.dxf": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "workflow.json",
+            "pieces_one.json",
+            "pattern.svg",
+            "pattern_one.dxf"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema",
+        "status",
+        "fit_status",
+        "contract_sha256",
+        "engine_sources",
+        "artifacts"
+      ],
+      "additionalProperties": false
+    },
+    "calibration_length": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "enum": [
+            "cm",
+            "mm"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "const": "observed"
+        },
+        "kind": {
+          "enum": [
+            "body_length",
+            "finished_length"
+          ]
+        },
+        "range": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "value",
+        "unit",
+        "source",
+        "basis",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "Strictly positive, observed physical length used as a measured-coplanar reference; source authenticity is not certified."
+    }
+  }
+}
