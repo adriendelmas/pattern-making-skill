@@ -63,7 +63,25 @@ The reusable [component workflow](skills/pattern-making/references/workflow-and-
 strict [proposal/target/bundle schemas](skills/pattern-making/references/workflow.schema.json), explicit
 body/template provenance, conditional component inventory, geometry-derived paired seams and hash-bound
 verification/reexport. Named recipes use typed dimension expressions for coordinated size changes.
-External catalog rules remain unintegrated; custom-target geometry checks do not establish brand compatibility.
+The offline [size catalog](skills/pattern-making/references/size-catalog.md) provides exact model selection,
+explicit custom profiles, unit/landmark projections and replayable source bindings. The modules can be
+composed by a private caller using the protocol in
+[SKILL.md](skills/pattern-making/SKILL.md#catalog-to-workflow-protocol); there is no automatic bridge.
+Catalog completeness does not authorize anatomy or geometry, and workflow geometry checks do not establish
+brand compatibility. Missing source rules remain unavailable.
+
+Start with an image/evidence proposal, select exact template/model IDs, and declare every recipe input's
+unit, landmark and source. Resolve one shared body for all outfit garments/components; freeze each
+garment's finished dimensions, ease and material targets before evaluating its dedicated parametric
+recipe. Reopen exported SVG/mmDXF to check actual saved attachment geometry, then repeat those checks
+after size extension. Retain the original catalog lock/profile/projection hashes alongside workflow
+source, profile, recipe and bundle bindings. A custom target has its own identity, distinct from its
+optional base standard model. Unknown units and missing inputs require explicit resolution; they do not
+permit default body values or inferred source constraints.
+
+Real catalog files, requests, profiles and runtime evidence stay private and external to this repository.
+Offline access grants no permission to call live PatternFast services. Catalog/family metadata and
+construction knowledge do not implement whole garments.
 
 These commands exercise invented attachment coupons with an existing export-capable interpreter:
 
@@ -79,8 +97,11 @@ python tests/run_workflow_controls.py --out /tmp/workflow-controls
 ```
 
 Choose fresh paths. The runner retains raw CLI logs, exact exit codes and saved SVG/mmDXF readbacks in
-`results.json`. The controls cover four construction families and six attachment purposes; they are not
-whole-garment recipes. Real catalog data and the six user garment regenerations remain separate integration.
+`results.json`. The runner executes 34 CLI controls covering four construction families and six attachment
+purposes; they are not whole-garment recipes. A separate private API composition exercise connects one
+numeric-display-backed standard profile and one explicit non-grid custom target to synthetic attachment
+coupons. This establishes only that bounded caller-side path; whole-garment template/custom-size drafting
+still requires dedicated recipes and separate validation.
 Legacy bare-piece commands cannot certify a missing workflow sidecar. All exports remain 2D only and need
 visual/toile review.
 
