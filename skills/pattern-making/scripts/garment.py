@@ -1,10 +1,10 @@
-"""Garments from reusable constructions (standard library only).
+"""Garments from reusable 2D constructions (validated export needs ezdxf and Shapely).
 
 A garment is a JSON spec (references/garment-spec.md). `run(spec)` drafts it from the engine's bodice block:
 body ease, shoulders (extension, pads), shaping (darts, boxy, armhole princess with flare), front edge (overlap,
 buttons or a concealed fly), collar (notched lapel drafted in place, stand or funnel), a two-piece sleeve matched to
-the armhole, facings, lining and pockets. It returns the cut pieces, the 3D shell with every seam and the wrap holds
-for CLO3D, and the construction checks. Command: python pattern.py garment spec.json --out folder
+the armhole, facings, lining and pockets. It returns cut pieces, named seam contracts, construction checks and optional outline-transfer data.
+Internal-dart sewing topology is unsupported; fitted shells are suppressed. Command: python pattern.py garment spec.json --out folder
 """
 import copy
 import json
@@ -152,16 +152,24 @@ def split_on(pc, a, b, d, new):
     i, fwd = edge_index(pc, a, b)
     L = P.length(P.edge(pc, i, 64))
     dd = d if fwd else L - d
+    P._attach(pc)
     nd, nx = pc["outline"][i], pc["outline"][(i + 1) % len(pc["outline"])]
+    attrs = {k: copy.deepcopy(v) for k,v in nd.items() if k.startswith("_")}
+    left_notches=[v for v in attrs["_notches"] if v <= dd]
+    right_notches=[v-dd for v in attrs["_notches"] if v > dd]
+    nd["_notches"]=left_notches
+    attrs["_notches"]=right_notches
     p0, p3 = tuple(nd["p"]), tuple(nx["p"])
     if "c" not in nd:
         q = lerp(p0, p3, dd / L)
-        pc["outline"].insert(i + 1, {"name": new, "p": list(q)})
+        pc["outline"].insert(i + 1, {"name": new, "p": list(q), **attrs})
+        P._detach(pc)
         return
     cv = (p0, tuple(nd["c"][0]), tuple(nd["c"][1]), p3)
     left, right = split(*cv, t_len(cv, dd))
     nd["c"] = [list(left[1]), list(left[2])]
-    pc["outline"].insert(i + 1, {"name": new, "p": list(left[3]), "c": [list(right[1]), list(right[2])]})
+    pc["outline"].insert(i + 1, {"name": new, "p": list(left[3]), "c": [list(right[1]), list(right[2])], **attrs})
+    P._detach(pc)
 
 
 def allow(pc, names, v):
@@ -226,6 +234,9 @@ def torso(m, ease, body, f):
     """Points of the front and back from the engine's bodice block, with the garment ease."""
     blk = {p["name"]: p for p in P.build("bodice", m, ease, body)["pieces"]}
     bf, bb = blk["Bodice front"], blk["Bodice back"]
+    required = {"waist_dart", "waist_dart_1", "waist_dart_2", "side_dart", "side_dart_1", "side_dart_2"}
+    if not required.issubset({n["name"] for n in bf["outline"]}) or "dart" not in {n["name"] for n in bb["outline"]}:
+        raise ValueError("This garment recipe requires bust and waist dart landmarks; use the no-dart block and a dedicated piece recipe")
     T = {}
     N0, SH0 = nodep(bf, "neck"), nodep(bf, "shoulder")
     u = unit(sub(SH0, N0))
@@ -234,7 +245,7 @@ def torso(m, ease, body, f):
     T["SH"], T["AC"] = SH0, add(nodep(bf, "across"), (f["across_out"], 0.0))
     se = f["side_ease"]
     T["UA"] = add(nodep(bf, "underarm"), (se, f["arm_drop"]))
-    T["BP"] = (nodep(bf, "waist_dart")[0], nodep(bf, "side_dart")[1])
+    T["BP"] = (m["bust_span"] / 2, m["bust_depth"])
     T["WA"] = nodep(bf, "waist_dart")
     T["YW"] = nodep(bf, "center_waist")[1]
     wd = (nodep(bf, "waist_dart_1")[0] - nodep(bf, "waist_dart_2")[0] - f["dart_reduce"]) / 2
@@ -441,6 +452,7 @@ def body_darts(T, S, m, K):
                        ("side_hip", (hq, T["YWb"] + hd), None), ("hem_side", (hq, yb), None), ("hem_cb", (0.8, yb), None),
                        ("cb_waist", T["CBW"], ((1.0, 32.0), (0.0, 26.0))), ("cb_blade", (0.0, 20.0), None)],
               darts_in=[[list(T["Ab"]), list(T["WLbo"]), [T["Ab"][0], T["YWb"] + 14], list(T["WLbi"])]])
+    P.true_boundary_darts(front)
     for pc in (front, back):
         notch(pc, "side_waist")
     side_f = [("Front", "underarm", "side_dart_1"), ("Front", "side_dart_2", "side_waist"),
@@ -471,6 +483,7 @@ def body_boxy(T, S, m, K):
     back = mk("Back", [("center_neck", T["CBN"], T["neck_b"]), ("neck", T["Nb"], None),
                        ("shoulder", T["SHb"], T["arm_upb"]), ("across", T["ACb"], T["arm_lob"]),
                        ("underarm", T["UAb"], None), ("hem_side", (T["UAb"][0], yb), None), ("hem_cb", (0.0, yb), None)])
+    P.true_boundary_darts(front)
     return {"pieces": [front, back],
             "side": ([("Front", "underarm", "side_dart_1"), ("Front", "side_dart_2", "hem_side")],
                      [("Back", "underarm", "hem_side")]),
@@ -605,6 +618,27 @@ def body_princess(T, S, m, K):
 # ------------------------------------------------------------------ two-piece sleeve
 
 
+
+def curve_to_length(cv, target):
+    """Keep endpoints and tangents, solve independent seam length by handle scale."""
+    a,c1,c2,b=cv
+    if target < dist(a,b):
+        raise ValueError("Sleeve seam contract shorter than endpoint distance")
+    def scaled(v):
+        return (a,add(a,sub(c1,a),v),add(b,sub(c2,b),v),b)
+    lo,hi=0.0,1.0
+    while blen(scaled(hi)) < target:
+        hi*=2
+        if hi>128:
+            raise ValueError("Sleeve curve cannot meet contract")
+    for _ in range(60):
+        m=(lo+hi)/2
+        if blen(scaled(m))>target:
+            hi=m
+        else:
+            lo=m
+    return scaled((lo+hi)/2)
+
 def two_piece_sleeve(arm_f, arm_b, depth, c):
     """Two-piece sleeve matched to the armhole (kb two-piece-sleeve): one-piece base with parallel underarm sides,
     cap = armhole + ease, split with the forearm seam `front_in` cm under the arm and the hindarm seam on the back
@@ -622,6 +656,8 @@ def two_piece_sleeve(arm_f, arm_b, depth, c):
         fcap, bcap = caps(W)
         W += arm_f + arm_b + EASE - (blen(fcap) + blen(bcap))
     fcap, bcap = caps(W)
+    fcap=curve_to_length(fcap,arm_f+EASE/2)
+    bcap=curve_to_length(bcap,arm_b+EASE/2)
     Bu, Cr = bcap[0], fcap[3]
     f_lo, f_up = split(*fcap, t_at(fcap, 0, -W / 4 - c["front_in"]))
     b_lo, b_up = split(*bcap, t_at(bcap, 0, W / 4 + c["back_out"]))
@@ -650,6 +686,19 @@ def two_piece_sleeve(arm_f, arm_b, depth, c):
         return add(Ef, rot(sub(p, Ef), th))
 
     bs_t = bent(Pb, Rl(VtT), c["bend"])
+    target_back = blen((Pb,*bs_u,VtU))+c["elbow"]
+    lo,hi=-0.3,0.3
+    for _ in range(60):
+        th=(lo+hi)/2
+        candidate=(Pb,*bent(Pb,Rl(VtT),c["bend"]),Rl(VtT))
+        if blen(candidate)>target_back:
+            hi=th
+        else:
+            lo=th
+    th=(lo+hi)/2
+    bs_t=bent(Pb,Rl(VtT),c["bend"])
+    if abs(blen((Pb,*bs_t,Rl(VtT)))-target_back)>.01:
+        raise ValueError("Elbow construction cannot meet independently specified ease")
 
     def T(p):
         return (p[0] + W, p[1])
@@ -701,11 +750,12 @@ def two_piece_sleeve(arm_f, arm_b, depth, c):
 
 
 class Seams:
-    """Builds the CLO3D seam list on the 3D shell, splitting edges so every seam is one edge to one edge."""
+    """Validates independent whole-seam contracts before splitting edges for outline transfer."""
 
     def __init__(self, pieces):
         self.p = pieces
         self.rows = []
+        self.contracts = []
         self.k = 0
 
     def _positions(self, chain):
@@ -729,12 +779,23 @@ class Seams:
                 return chain[:k] + [(nm, a, new), (nm, new, b)] + chain[k + 1:]
         return chain
 
-    def match(self, A, B, knots=(), why="", sides=None):
+    def match(self, A, B, knots=(), why="", sides=None, ease_cm=0.0):
         """Sew chain A onto chain B. knots: (posA, posB) points that must meet (sleeve seams on armhole notches);
-        positions between knots are matched proportionally, and each segment's ratio is declared as ease."""
+        whole-chain ease_cm is independently specified and validated before any segment distribution."""
         _, LA = self._positions(A)
         _, LB = self._positions(B)
+        if ease_cm and ("dart" in why.lower() or why.lower() in ("side seam", "princess seam", "forearm seam")):
+            raise ValueError("Ordinary side and dart seams require zero ease")
+        if not math.isfinite(ease_cm) or (ease_cm and not why):
+            raise ValueError("seam ease needs a finite independent amount and reason")
+        if abs(LA - LB - ease_cm) > 0.1:
+            raise ValueError(f"seam {why}: {LA*10:.3f}/{LB*10:.3f} mm; declared ease {ease_cm*10:.3f} mm")
+        self.contracts.append({"a":copy.deepcopy(A),"b":copy.deepcopy(B),"ease_cm":ease_cm,"why":why})
         ks = [(0.0, 0.0)] + list(knots) + [(LA, LB)]
+        if any(a1 <= a0 or b1 <= b0 for (a0,b0),(a1,b1) in zip(ks,ks[1:])):
+            raise ValueError("seam knots must be strictly increasing within the chain")
+        if any(abs(a-b) > .1 for a,b in knots):
+            raise ValueError("seam knots below the eased region must have zero ease")
 
         def a2b(x):
             for (a0, b0), (a1, b1) in zip(ks, ks[1:]):
@@ -757,7 +818,9 @@ class Seams:
         assert len(A) == len(B), (A, B)
         for (na, a1, a2), (nb, b1, b2), (x0, x1), (y0, y1) in zip(A, B, sa, sb):
             ease = (x1 - x0) / (y1 - y0) - 1
-            opt = [{"ease": round(ease, 4), "why": why}] if abs(ease) > 0.002 else []
+            # Only distribute ease after the independent total contract has passed.
+            opt = [{"ease": ease if ease_cm and y1 > (knots[-1][1] if knots else 0) else 0,
+                    "why": why, "contract_ease_cm": ease_cm, "contract_length_cm": LB}]
             self.rows.append(((na, a1, a2), (nb, b1, b2), opt, sides))
 
 
@@ -767,14 +830,17 @@ class Seams:
 def run(spec, base_dir="."):
     S = merged(spec)
     body = S["body"]
+    if S["shaping"] not in ("darts", "boxy", "princess"):
+        raise ValueError("Unsupported shaping: choose darts, boxy or princess; use a dedicated piece recipe otherwise")
     own = {}
     if S["measurements"]:
         with open(os.path.join(base_dir, S["measurements"]), encoding="utf-8") as f:
             own = json.load(f)
-        body = own.pop("body", body)
-    ease = {**P.EASE[body], **own.pop("ease", {})}
+        body = own.get("body", body)
+    if body != "women":
+        raise ValueError("garment recipes support women with dart shaping landmarks; use a male/child no-dart block plus a dedicated piece recipe")
     size = str(S["size"] or P.BASE[body]["ref"])
-    m = P.complete({**P.standard_measurements(body, size), **own}, body)
+    body, m, ease, provenance = P.resolve_measurements(body, size, own)
     T = torso(m, ease, body, S["fit"])
     shoulders(T, S["shoulder"]["extend"], S["shoulder"]["pad"])
     curves(T)
@@ -786,7 +852,19 @@ def run(spec, base_dir="."):
          stand_collar(T, S["collar"], ext) if ctype in ("stand", "funnel") else no_collar(T, ext))
     B = {"darts": body_darts, "boxy": body_boxy, "princess": body_princess}[S["shaping"]](T, S, m, K)
     pcs = {p["name"]: p for p in B["pieces"]}
+    for chain_a, chain_b in [B["side"]] + B.get("princess", []):
+        la = sum(edge_len(pcs[n], a, b) for n,a,b in chain_a)
+        lb = sum(edge_len(pcs[n], a, b) for n,a,b in chain_b)
+        short = chain_a if la < lb else chain_b
+        nm,a,b = max(short, key=lambda row: edge_len(pcs[row[0]], row[1], row[2]))
+        ix,_ = edge_index(pcs[nm],a,b)
+        P.lengthen_edge(pcs[nm],ix,edge_len(pcs[nm],a,b)+abs(la-lb),preserve_tangents=True)
     front, back = pcs[B["front_panel"]], pcs[B["back_panel"]]
+    for p in B["pieces"]:
+        pts = P.outline(p)
+        x = (min(q[0] for q in pts)+max(q[0] for q in pts))/2
+        y0,y1=min(q[1] for q in pts),max(q[1] for q in pts)
+        p["grain"] = [[x,y0+(y1-y0)*.45],[x,y0+(y1-y0)*.75]]
     checks = []
 
     def ck(label, got, want, tol=0.1):
@@ -858,7 +936,7 @@ def run(spec, base_dir="."):
                     within="Front")
         allow(facing, ["hem_in"], S["hem_allowance"])
         notch(facing, "facing_low")
-    facing.update(cut="1 pair", allowance=S["allowance"])
+    facing.update(cut="1 pair", allowance=S["allowance"], grain=[[xf-2,y_low-12],[xf-2,y_low+5]])
     cut.append(facing)
     bnf = None
     if S["facing"]["back_neck"]:
@@ -868,6 +946,7 @@ def run(spec, base_dir="."):
         bf_ = mk("Back neck facing", [("center_neck", T["CBN"], T["neck_b"]), ("neck", T["Nb"], None),
                                       ("facing_shoulder", Fsb, bnf_c), ("bnf_cb", (0.0, dep), None)],
                  fold=[3], cut="1 on fold", allowance=S["allowance"], within="Back")
+        bf_["grain"] = [[2,3],[2,dep-1]]
         cut.append(bf_)
         bnf = (Fsb, dep, bnf_c)
         ck("front facing shoulder = back neck facing shoulder", dist(T["N"], Fs), dist(T["Nb"], Fsb))
@@ -914,6 +993,12 @@ def run(spec, base_dir="."):
         if sv:
             lining_pieces += [sv["top"](True), sv["under"](True)]
         for p in lining_pieces:
+            P.true_boundary_darts(p)
+            if not p.get("grain"):
+                pts = P.outline(p)
+                x = (min(q[0] for q in pts)+max(q[0] for q in pts))/2
+                y0,y1=min(q[1] for q in pts),max(q[1] for q in pts)
+                p["grain"]=[[x,y0+(y1-y0)*.45],[x,y0+(y1-y0)*.75]]
             p.update(cut=p.get("cut", "1 pair"), allowance=1.5 if S["shaping"] == "princess" else 1.0)
         info("lining hem above the finished hem", up)
 
@@ -924,9 +1009,10 @@ def run(spec, base_dir="."):
     if sv:
         shell3d["Top sleeve"], shell3d["Under sleeve"] = sv["top"](), sv["under"]()
     for p in shell3d.values():
-        for k in ("buttons", "lines", "darts_in", "fold", "allowances", "notches"):
+        for k in ("buttons", "lines"):
             p.pop(k, None)
         p["mirror"] = True
+    reference_pieces = [copy.deepcopy(p) for nm,p in shell3d.items() if nm == "Collar"]
     wearer = {nm: "right" if nm in ("Back", "Side back", "Collar") else "left" for nm in shell3d}
     sm = Seams(shell3d)
     sf, sb = B["side"]
@@ -935,7 +1021,7 @@ def run(spec, base_dir="."):
         sm.match(A_, B_, why="princess seam")
     for nm, l1, ap, l2 in B["darts"]:
         sm.match([(nm, l1, ap)], [(nm, l2, ap)], why="dart legs, trued")
-    sm.match([(B["back_panel"], "neck", "shoulder")], [(B["front_panel"], "neck", "shoulder")], why="back shoulder ease")
+    sm.match([(B["back_panel"], "neck", "shoulder")], [(B["front_panel"], "neck", "shoulder")], why="back shoulder ease", ease_cm=ease["shoulder"])
     cb_chain, nb = [], back["outline"]
     i = idx(shell3d["Back"], "hem_cb")
     names = [n["name"] for n in shell3d["Back"]["outline"]]
@@ -956,13 +1042,21 @@ def run(spec, base_dir="."):
         sm.match([("Collar", "cb_top", "cb_neck")], [("Collar", "cb_top", "cb_neck")], why="collar centre back", sides="LR")
     if sv:
         sm.match([("Under sleeve", "underarm", "front_seam_cap"), ("Top sleeve", "front_seam_cap", "crown")], B["arm_f"],
-                 knots=[(sv["f_lo"], sv["f_lo"])], why="sleeve cap ease, front")
+                 knots=[(sv["f_lo"], sv["f_lo"])], why="sleeve cap ease, front", ease_cm=sc["ease"]/2)
         sm.match([("Under sleeve", "underarm", "back_seam_cap"), ("Top sleeve", "back_seam_cap", "crown")], B["arm_b"],
-                 knots=[(sv["b_lo"], sv["b_lo"])], why="sleeve cap ease, back")
+                 knots=[(sv["b_lo"], sv["b_lo"])], why="sleeve cap ease, back", ease_cm=sc["ease"]/2)
         sm.match([("Top sleeve", "front_seam_cap", "front_seam_elbow"), ("Top sleeve", "front_seam_elbow", "front_seam_hem")],
                  [("Under sleeve", "front_seam_cap", "front_seam_hem")], why="forearm seam")
         sm.match([("Top sleeve", "back_seam_cap", sv["back_end"])], [("Under sleeve", "back_seam_cap", sv["back_end"])],
-                 why="elbow ease")
+                 why="elbow ease", ease_cm=sc["elbow"])
+    cut_seams = []
+    cut_names={p["name"] for p in cut}
+    for c in sm.contracts:
+        if len(c["a"])==len(c["b"])==1 and c["a"][0][0] in cut_names and c["b"][0][0] in cut_names:
+            a,b=c["a"][0],c["b"][0]
+            # Ordinary one-to-one seams remain directly named; additive ease stays in seam_chains.
+            if c["ease_cm"]==0:
+                cut_seams.append([*a,*b])
     seams = []
     opp = {"L": "R", "R": "L"}
     for (a, b, opt, sides) in sm.rows:
@@ -996,7 +1090,8 @@ def run(spec, base_dir="."):
     ck("back shoulder - front shoulder (ease)", edge_len(back, "neck", "shoulder") - edge_len(front, "neck", "shoulder"),
        T["sh_ease"])
     return {"spec": S, "size": size, "cut": cut, "lining": lining_pieces, "shell3d": list(shell3d.values()),
-            "seams": seams, "holds": holds, "checks": checks}
+            "seams": seams, "holds": holds, "checks": checks,
+            "resolved_measurements": m, "measurement_provenance": provenance, "resolved_ease": ease, "cut_seams": cut_seams, "cut_chains":sm.contracts, "reference_pieces":reference_pieces}
 
 
 def derived_linings(front, back, T, Fs, fac_c, xf, y_low, up, pl, bnf, shaping):
@@ -1059,18 +1154,53 @@ def derived_linings(front, back, T, Fs, fac_c, xf, y_low, up, pl, bnf, shaping):
 
 
 def write(res, out):
-    """Exports the cut pieces (SVG, DXF, pieces JSON) and the 3D shell for CLO3D (seams validated), prints the report."""
-    sz = res["size"]
-    S = res["spec"]
-    cut_set = [(sz, {"pieces": res["cut"] + res["lining"], "checks": list(res["checks"])})]
-    P.export(cut_set, out, S["title"])
-    shell = [(sz, {"pieces": res["shell3d"], "seams": res["seams"], "holds": res["holds"], "checks": []})]
-    P.export(shell, os.path.join(out, "clo3d"), S["title"] + " (3D shell)")
-    print("== Cut pieces")
-    ok = P.report(cut_set)
-    print("\n== 3D shell")
-    ok &= P.report(shell)
-    print(f"\nFiles written to {os.path.abspath(out)} (3D shell for CLO3D in {os.path.join(out, 'clo3d')})")
+    """Deliver validated 2D pieces; a fitted internal-dart shell is explicitly unsupported."""
+    sz,S = res["size"],res["spec"]
+    unsupported = any(p.get("darts_in") for p in res["cut"] + res["lining"])
+    data = {"pieces":res["cut"]+res["lining"], "checks":list(res["checks"]),
+            "seams":res["cut_seams"], "seam_chains":res["cut_chains"],
+            "seam_reference_pieces":res["reference_pieces"], "holds":[], "construction":S,
+            "resolved_measurements":res["resolved_measurements"], "resolved_ease":res["resolved_ease"],
+            "measurement_provenance":res["measurement_provenance"], "measurement_unit":"cm",
+            "shell_status":{"supported":False, "reason":"Use the separately validated outline shell if available; internal dart topology unsupported"}}
+    sets=[(sz,data)]
+    os.makedirs(out,exist_ok=True)
+    if any(n.startswith(("pattern", "clo3d", "pieces_")) for n in os.listdir(out)):
+        raise ValueError("Output contains a previous bundle; choose a fresh --out directory")
+    with P.tempfile.TemporaryDirectory(prefix="garment-stage-",dir=out) as stage:
+        ok=P.export(sets,stage,S["title"])
+        P.report(sets)
+        if ok and not unsupported:
+            shell=[(sz,{"pieces":res["shell3d"],"seams":res["seams"],"holds":res["holds"],"checks":[]})]
+            try:
+                ok=P.export(shell,os.path.join(stage,"clo3d"),S["title"]+" (outline transfer; not simulation)",allowance=0)
+                P.report(shell)
+            except ValueError as err:
+                print(f"Shell export rejected: {err}")
+                ok=False
+        if ok:
+            for name in os.listdir(stage):
+                P.shutil.move(os.path.join(stage,name),os.path.join(out,name))
+        else:
+            target=os.path.join(out,"rejected")
+            os.makedirs(target,exist_ok=True)
+            source=os.path.join(stage,"rejected") if os.path.isdir(os.path.join(stage,"rejected")) else stage
+            for name in os.listdir(source):
+                if name.startswith(("pieces_","seams_","checks")):
+                    src=os.path.join(source,name)
+                    if name.startswith("pieces_"):
+                        with open(src,encoding="utf-8") as f:
+                            j=json.load(f)
+                        j["validation_status"]="rejected"
+                        with open(src,"w",encoding="utf-8") as f:
+                            json.dump(j,f,indent=1)
+                    P.shutil.move(src,os.path.join(target,name))
+    if ok:
+        print(f"Validated 2D files: {os.path.abspath(out)}")
+        if unsupported:
+            print("3D shell unsupported: internal darts require sewn topology; no fit simulation performed.")
+    else:
+        print("Export rejected; inspect diagnostics under rejected/.")
     return ok
 
 
@@ -1087,4 +1217,8 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except (ValueError, OSError) as err:
+        print(f"Error: {err}", file=sys.stderr)
+        sys.exit(2)

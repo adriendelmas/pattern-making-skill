@@ -1,16 +1,35 @@
+# Executable scope of garment specs
+
+This recipe currently requires a women's bodice with bust and waist dart landmarks. Male/child bodies
+and absent optional dart nodes are rejected before construction with an actionable error. Use a male
+no-dart block plus a dedicated piece recipe for a men's tee; do not inject female chest darts.
+
+The validated deliverable is 2D. Internal darts are exported as actual marks, but their sewn 3D topology
+is unsupported: fitted shells are suppressed. Any supported outline shell is a transfer file, not fit
+or simulation evidence. Measurement resolution follows `measurements.md`; unknown fields fail.
+
+Ordinary side/princess seams and dart legs have zero ease (1 mm tolerance). Back shoulder ease comes
+from the body ease contract; total cap ease is chosen in the sleeve spec and divided equally front/back;
+elbow ease is chosen before curve construction. Chain lengths are validated before distributing ease
+or inserting seam nodes. Dart construction retains the body bust point, dart apex, mouth midpoint and
+intake chord while truing the mouth orientation and adjacent seam tangents; local seam curves are
+balanced with fixed endpoints. Review these changes on a toile. They do not estimate wearer fit.
+
+The remaining upstream schema below describes construction options, not additional executable body
+support or evidence of a current CLO3D run.
+
 # Garment spec
 
 `python scripts/pattern.py garment spec.json --out folder` drafts a whole garment from the engine's bodice block
 with reusable constructions, so a jacket or a coat is a short JSON file, not a script. Every key is optional;
-values are in cm. It writes the cut pieces (SVG, DXF, `pieces_<size>.json`), the 3D shell for CLO3D in
-`folder/clo3d/` (mirror halves, every seam split one edge to one edge with its ease declared, wrap holds), and
-the report. `python scripts/sheet.py folder/pieces_<size>.json` draws PNG sheets (needs Pillow).
+values are in cm. It writes validated cut pieces (SVG, DXF, `pieces_<size>.json`) and a report.
+Supported outline shells additionally go to `folder/clo3d/`; internally darted shells are suppressed. `python scripts/sheet.py folder/pieces_<size>.json` draws PNG sheets (needs Pillow).
 
 Worked specs: `examples/notched-lapel-jacket/` (fitted and oversize), `examples/velvet-coat/`.
 
 | Key | Content | Default |
 |---|---|---|
-| `title`, `body`, `size`, `measurements` | Body (women, men, children), standard size, or a measurements file as for `block` | women, reference size |
+| `title`, `body`, `size`, `measurements` | Body (women with dart landmarks), standard size, or a measurements file as for `block` | women, reference size |
 | `fit` | `side_ease` (per quarter at the side seam), `dart_reduce` (waist darts narrower, more waist ease), `neck_widen`, `neck_drop` (front), `arm_drop` (armhole lowered), `across_out` | 1.0, 0, 0, 0, 1.5, 0 |
 | `shoulder` | `extend` (shoulder wider), `pad` (tip raised by the pad thickness); the back keeps its shoulder ease | 0, 0 |
 | `shaping` | `darts`: side bust dart, fish darts, side seam out to the hip. `boxy`: unfitted, straight side seams, bust dart reduced to `boxy.dart_keep`, the rest as hem shaping. `princess`: armhole princess front and back, side dart turned into the seam, front edge bowed over the bust to match | darts |
@@ -30,3 +49,17 @@ part, top front on layer 1 (`references/clo3d.md`).
 
 Not covered yet: raglan and kimono sleeves, one-piece sleeves, shirt collars, hoods, welt pockets, trousers and
 skirts (use `block` and `piece`).
+
+
+## Known rejected allowance and validation limits
+
+The original `examples/velvet-coat/coat.json` currently returns exit 2: its 1.5 cm allowance produces
+self-intersecting CUT paths at Back and Back neck facing. Only rejection diagnostics are written. This
+exotic floor-length spec is retained as immutable upstream source, not counted as a passing deliverable.
+No polygon repair or tolerance increase is used to hide this failure. Both notched-jacket examples pass
+2D export; only the oversize example also supports the outline shell transfer.
+
+`seam_chains` retains the independent whole-chain contracts on unsplit 2D pieces. A neutral collar is
+saved in `seam_reference_pieces` for neckline mating; it is a construction reference, not a cut quantity.
+Top/under-collar turn-of-cloth and lining extensions remain design allowances, not a complete validated
+sewing schedule. Review facings, lining assembly and finished girths on a toile.

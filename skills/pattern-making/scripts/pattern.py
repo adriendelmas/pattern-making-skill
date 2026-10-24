@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Pattern-making engine: parametric blocks, seam allowances, notches, unfolding, grading,
-export to SVG (1:1 scale), DXF and JSON for CLO3D. Standard library only.
+export to SVG (1:1 scale), modern mm DXF and supported outline-transfer JSON.
+Core math uses the standard library; validated export requires ezdxf and Shapely.
 
 Inputs in cm, SVG/DXF/CLO3D outputs in mm.
 
@@ -12,6 +13,8 @@ Inputs in cm, SVG/DXF/CLO3D outputs in mm.
   python pattern.py test
 """
 import argparse
+import copy
+import shutil
 import json
 import math
 import os
@@ -129,7 +132,7 @@ def cut_line(piece):
         (p1, p2), (q1, q2) = off[j - 1], off[j]
         x = intersection(p1, p2, q1, q2)
         if x is None or dist(x, segs[j][0]) > 3 * max(segs[j - 1][2], segs[j][2], 0.3):
-            out += [p2, q1]
+            out += [p2] if dist(p2, q1) < 1e-10 else [p2, q1]
         else:
             out.append(x)
     return out
@@ -149,10 +152,42 @@ def notches(piece):
     return res
 
 
+
+def construction_marks(piece):
+    """Semantic paths in source cm, shared by all drawing writers. Buttons are crosses, not holes."""
+    for key, layer in (("darts_in", "DART"), ("lines", "INTERNAL")):
+        for pts in piece.get(key, []):
+            yield layer, list(pts) + ([pts[0]] if key == "darts_in" else [])
+    for q in piece.get("buttons", []):
+        x, y = q
+        yield "BUTTON", [(x - .3, y), (x + .3, y)]
+        yield "BUTTON", [(x, y - .3), (x, y + .3)]
+    for k in piece.get("fold", []):
+        yield "FOLD", edge(piece, k)
+    if piece.get("grain"):
+        yield "GRAIN", piece["grain"]
+    for a, b in notches(piece):
+        yield "NOTCHES", [a, b]
+
+
+def transform_marks(piece, transform, duplicate=False):
+    """Transform absolute marks; indexed folds/notches are remapped by the caller."""
+    out = {}
+    for key in ("darts_in", "lines"):
+        if key in piece:
+            changed = [[transform(q) for q in pts] for pts in piece[key]]
+            out[key] = copy.deepcopy(piece[key]) + changed if duplicate else changed
+    if "buttons" in piece:
+        changed = [transform(q) for q in piece["buttons"]]
+        out["buttons"] = copy.deepcopy(piece["buttons"]) + changed if duplicate else changed
+    if piece.get("grain"):
+        out["grain"] = copy.deepcopy(piece["grain"]) if duplicate else [transform(q) for q in piece["grain"]]
+    return out
+
 def unfold(piece):
     """Whole piece from a half piece cut on the fold (mirrored across the fold edge)."""
     if not piece.get("fold"):
-        return piece
+        return copy.deepcopy(piece)
     nds, n, k = piece["outline"], len(piece["outline"]), piece["fold"][0]
     A = [dict(nds[(k + 1 + i) % n]) for i in range(n)]       # from the end of the fold to its start
     m = n - 1
@@ -183,7 +218,8 @@ def unfold(piece):
         d = c["d"] if "d" in c else c.get("t", 0) * L
         d = d + L if d < 0 else d
         out["notches"] += [{"edge": i, "d": d}, {"edge": 2 * m - 1 - i, "d": L - d}]
-    return out
+    out.update(transform_marks(piece, lambda q: reflect(q, fa, fb), duplicate=True))
+    return copy.deepcopy(out)
 
 
 # ------------------------------------------------------------------ transformations
@@ -497,9 +533,100 @@ def complete(m, body):
     return m
 
 
+
+def resolve_measurements(body, size=None, own=None):
+    own = copy.deepcopy(own or {})
+    body = own.pop("body", body)
+    if body not in EASE:
+        raise ValueError("Unsupported body; choose women, men or children")
+    extras = own.pop("ease", {})
+    if not isinstance(extras, dict) or set(extras) - set(EASE[body]):
+        raise ValueError("Unsupported ease fields")
+    std = standard_measurements(body, size)
+    allowed = set(complete(std, body))
+    unknown = set(own) - allowed
+    if unknown:
+        raise ValueError("Unsupported measurement fields (not consumed): " + ", ".join(sorted(unknown)))
+    for key, value in {**own, **extras}.items():
+        if not isinstance(value, (float, int)) or not math.isfinite(value) or (key not in extras and value <= 0):
+            raise ValueError(f"Invalid finite measurement: {key}")
+    m = complete({**std, **own}, body)
+    reference = str(size or (8 if body == "children" else BASE[body]["ref"]))
+    provenance = {k: {"source": "input" if k in own else "table" if k in std else "derived",
+                      "body": body, "reference_size": reference} for k in m}
+    return body, m, {**EASE[body], **extras}, provenance
+
 def check(label, value, expected=None, tol=None):
-    return {"label": label, "value": round(value, 2),
-            "expected": None if expected is None else round(expected, 2), "tol": tol}
+    return {"label": label, "value": value, "expected": expected, "tol": tol}
+
+
+def true_boundary_darts(piece):
+    """Keep each apex and intake chord; place the mouth perpendicular to its apex bisector.
+
+    Adjacent seam tangents are perpendicular to the legs so they coincide when sewn closed.
+    Body/design landmarks elsewhere are retained. This is a local construction operation, never
+    an export repair: user-authored unequal/untrued darts fail validation unchanged.
+    """
+    nd = piece["outline"]
+    for i, n in enumerate(nd):
+        if not n.get("dart"):
+            continue
+        j, k = (i-1)%len(nd), (i+1)%len(nd)
+        a, b, c = nd[j]["p"], n["p"], nd[k]["p"]
+        width = dist(a,c)
+        if width < 1e-8:
+            raise ValueError("Dart intake must be positive")
+        u = [(c[t]-a[t])/width for t in (0,1)]
+        foot = [(a[t]+c[t])/2 for t in (0,1)]
+        v = [-(foot[1]-b[1]), foot[0]-b[0]]
+        if sum(v[t]*u[t] for t in (0,1)) < 0:
+            v = [-x for x in v]
+        vlen = math.hypot(*v)
+        if vlen < 1e-8:
+            raise ValueError("Dart apex lies on its mouth")
+        u = [x/vlen for x in v]
+        nd[j]["p"] = a = [foot[t]-u[t]*width/2 for t in (0,1)]
+        nd[k]["p"] = c = [foot[t]+u[t]*width/2 for t in (0,1)]
+        for start, end, mouth, incoming in (((j-1)%len(nd),j,a,True),(k,(k+1)%len(nd),c,False)):
+            p0,p3=nd[start]["p"],nd[end]["p"]
+            v=[-(mouth[1]-b[1]),mouth[0]-b[0]]
+            if sum(v[t]*(p3[t]-p0[t]) for t in (0,1))<0:
+                v=[-x for x in v]
+            l=math.hypot(*v)
+            span=dist(p0,p3)
+            handle=min(span/3,1.0)
+            controls=nd[start].get("c",[[p0[t]+(p3[t]-p0[t])/3 for t in (0,1)],
+                                          [p0[t]+2*(p3[t]-p0[t])/3 for t in (0,1)]])
+            controls=copy.deepcopy(controls)
+            controls[1 if incoming else 0]=[mouth[t]+(-1 if incoming else 1)*v[t]/l*handle for t in (0,1)]
+            nd[start]["c"]=controls
+    return piece
+
+
+def lengthen_edge(piece, i, target, preserve_tangents=False):
+    """Fit a smooth edge to a construction length with fixed endpoints (cm)."""
+    a,b=piece["outline"][i]["p"],piece["outline"][(i+1)%len(piece["outline"])]["p"]
+    chord=dist(a,b)
+    if target < chord-.001:
+        raise ValueError("Seam target shorter than endpoint distance")
+    ux,uy=(b[0]-a[0])/chord,(b[1]-a[1])/chord
+    def controls(bow):
+        return [[a[0]+(b[0]-a[0])/3-uy*bow,a[1]+(b[1]-a[1])/3+ux*bow],
+                [a[0]+2*(b[0]-a[0])/3-uy*bow,a[1]+2*(b[1]-a[1])/3+ux*bow]]
+    if preserve_tangents and "c" in piece["outline"][i]:
+        old = copy.deepcopy(piece["outline"][i]["c"])
+        def controls(scale):
+            return [[a[t]+(old[0][t]-a[t])*scale for t in (0,1)],
+                    [b[t]+(old[1][t]-b[t])*scale for t in (0,1)]]
+    lo,hi=0.0,max(target,1)
+    for _ in range(50):
+        v=(lo+hi)/2
+        c=controls(v)
+        if length([a]+cubic(a,*c,b,64))>target:
+            hi=v
+        else:
+            lo=v
+    piece["outline"][i]["c"]=controls((lo+hi)/2)
 
 # ------------------------------------------------------------------ blocks
 
@@ -538,6 +665,7 @@ def block_skirt(m, a, body):
             p["allowances"][str(t.e("center_hem"))] = 1.5
         p["notches"] = [{"edge": t.e("hip"), "d": 0}]
         p["grain"] = [[hip / 2, hh + 5], [hip / 2, L - 10]]
+        true_boundary_darts(p)
         side[name] = t.lg("side_waist", "hip")
         total += 2 * (xs - pt)
         pieces.append(p)
@@ -619,9 +747,21 @@ def block_bodice(m, a, body):
     front["fold"] = [t.e("center_waist")]
     front["notches"] = [{"edge": t.e("across"), "d": 0}]
     front["grain"] = [[CW / 2, yc], [CW / 2, ywf - 5]]
+    true_boundary_darts(back)
+    true_boundary_darts(front)
+    side_front = sum(length(edge(front, i, 64)) for i,n in enumerate(front["outline"])
+                     if n["name"] in ("underarm", "side_dart_2"))
+    side_back = length(edge(back, 4, 64))
+    if side_front >= side_back:
+        lengthen_edge(back, 4, side_front)
+        side_back = length(edge(back, 4, 64))
+    else:
+        i = t.e("side_dart_2") if bd > .2 else t.e("underarm")
+        lengthen_edge(front, i, length(edge(front,i,64)) + side_back-side_front, preserve_tangents=True)
+        side_front = side_back
     arm_front, arm_low_front = t.lg("shoulder", "across"), t.lg("across")
     total = 2 * (waist_back + Q - sf - pv)
-    checks = [check("Bodice: front side seam - back side seam (dart closed)", side_front - side_back, 0, 0.3),
+    checks = [check("Bodice: front side seam - back side seam (dart closed)", side_front - side_back, 0, 0.1),
               check("Bodice: back shoulder - front shoulder (ease)", shoulder_back - t.lg("neck"), a["shoulder"], 0.05),
               check("Bodice: drafted half neckline", neck_back + t.lg("center_neck"), N / 2, 1.5),
               check("Bodice: finished waist" if women else "Bodice: finished waist (info)",
@@ -703,6 +843,7 @@ def block_trousers(m, a, body):
         p["notches"] = [{"edge": t.e("hip"), "d": 0}, {"edge": t.e("outer_knee"), "d": 0},
                         {"edge": t.e("inner_knee"), "d": 0}] + ([] if fr else [{"edge": t.e("inner_knee"), "d": 1}])
         p["grain"] = [[xc, hh], [xc, Lp - 10]]
+        true_boundary_darts(p)
         meas[name] = {"outer": t.lg("side_waist", "hip", "outer_knee"), "inner": t.lg("inner_hem", "inner_knee"),
                       "crotch": t.lg("crotch", "center_hip")}
         total += 2 * wn
@@ -1014,11 +1155,24 @@ def mirror_piece(p, name):
         q = [dict(n, p=[-n["p"][0], n["p"][1]], **({"c": [[-c[0], c[1]] for c in n["c"]]} if "c" in n else {}))
              for n in nodes]
         return _reversed_nodes(q)
-    out = dict(p, name=name, outline=mir(p["outline"]))
+    out = copy.deepcopy(dict(p, name=name, outline=mir(p["outline"])))
+    n = len(p["outline"])
+    rev = lambda i: (n - 2 - i) % n
+    if "fold" in p:
+        out["fold"] = [rev(i) for i in p["fold"]]
+    if "allowances" in p:
+        out["allowances"] = {str(rev(int(i))): v for i, v in p["allowances"].items()}
+    if "notches" in p:
+        out["notches"] = []
+        for nt in p["notches"]:
+            L = length(edge(p, nt["edge"]))
+            d = nt["d"] if "d" in nt else nt.get("t", 0) * L
+            if d < 0:
+                d += L
+            out["notches"].append({"edge": rev(nt["edge"]), "d": L - d})
     if p.get("holes"):
         out["holes"] = [dict(hl, outline=mir(hl["outline"])) for hl in p["holes"]]
-    if p.get("grain"):
-        out["grain"] = [[-g[0], g[1]] for g in p["grain"]]
+    out.update(transform_marks(p, lambda q: [-q[0], q[1]]))
     return out
 
 
@@ -1055,7 +1209,7 @@ BLOCKS = ("skirt", "bodice", "sleeve", "trousers")
 
 
 def build(block, m, a, body):
-    res = {"pieces": [], "checks": []}
+    res = {"pieces": [], "checks": [], "seam_chains": []}
     wanted = BLOCKS if block == "all" else (block,)
     bodice = block_bodice(m, a, body) if ("bodice" in wanted or "sleeve" in wanted) else None
     for b in wanted:
@@ -1063,6 +1217,44 @@ def build(block, m, a, body):
              "sleeve": lambda: block_sleeve(m, a, body, bodice), "trousers": lambda: block_trousers(m, a, body)}[b]()
         res["pieces"] += r["pieces"]
         res["checks"] += r["checks"]
+        chains=[]
+        if b=="skirt":
+            chains=[([["Skirt front","side_waist","hip"],["Skirt front","hip","side_hem"]],
+                     [["Skirt back","side_waist","hip"],["Skirt back","hip","side_hem"]],0,"side seam")]
+        elif b=="trousers":
+            chains=[([["Trousers front",a,b] for a,b in zip(names,names[1:])],
+                     [["Trousers back",a,b] for a,b in zip(names,names[1:])],0,why)
+                    for names,why in [(["side_waist","hip","outer_knee","outer_hem"],"side seam"),
+                                      (["inner_hem","inner_knee","crotch"],"inseam")]]
+        elif b=="bodice":
+            front=r["pieces"][1]
+            hasdart=any(n.get("dart") and n["name"]=="side_dart" for n in front["outline"])
+            ca=([["Bodice front","underarm","side_dart_1"],["Bodice front","side_dart_2","side_waist"]]
+                if hasdart else [["Bodice front","underarm","side_waist"]])
+            chains=[(ca,[["Bodice back","underarm","side_waist"]],0,"side seam"),
+                    ([["Bodice back","neck","shoulder"]],[["Bodice front","neck","shoulder"]],a["shoulder"],"back shoulder ease")]
+        by={p["name"]:p for p in r["pieces"]}
+        def edge_ref(row):
+            nm,a,b=row
+            p=by[nm]; ns=[n["name"] for n in p["outline"]];i,j=ns.index(a),ns.index(b)
+            return p,i if (i+1)%len(ns)==j else j
+        def clen(chain):
+            return sum(length(edge(*edge_ref(row),64)) for row in chain)
+        for ca,cb,ease,why in chains:
+            if b in ("skirt","trousers"):
+                la,lb=clen(ca),clen(cb)
+                short=ca if la<lb else cb
+                # Fit an existing curved edge, preserving anatomical endpoints/tangents.
+                curved=[row for row in short if "c" in edge_ref(row)[0]["outline"][edge_ref(row)[1]]]
+                row=max(curved or short,key=lambda row:length(edge(*edge_ref(row),64)))
+                pc,i=edge_ref(row)
+                lengthen_edge(pc,i,length(edge(pc,i,64))+abs(la-lb),preserve_tangents=True)
+            if b in ("skirt","trousers"):
+                suffix="front side seam - back side seam" if why=="side seam" else "front inseam - back inseam"
+                for old in res["checks"]:
+                    if old["label"]==b.capitalize()+": "+suffix:
+                        old.update(value=clen(ca)-clen(cb),expected=0,tol=.1)
+            res["seam_chains"].append({"a":ca,"b":cb,"ease_cm":ease,"why":why})
     return res
 
 # ------------------------------------------------------------------ export
@@ -1102,8 +1294,10 @@ COLORS = ["#000000", "#d62728", "#1f77b4", "#2ca02c", "#9467bd", "#ff7f0e", "#8c
 
 
 def write_svg(sets, path, title):
+    from xml.sax.saxutils import quoteattr
+
     offs, W, H = layout([r["pieces"] for _, r in sets])
-    o = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.0f}mm" height="{H + 120:.0f}mm" '
+    o = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.1f}mm" height="{H + 120:.1f}mm" '
          f'viewBox="0 -120 {W:.1f} {H + 120:.1f}" font-family="sans-serif">',
          '<rect x="0" y="-120" width="100%" height="100%" fill="#fff"/>',
          '<rect x="10" y="-110" width="100" height="100" fill="none" stroke="#000" stroke-width="0.5"/>',
@@ -1112,70 +1306,67 @@ def write_svg(sets, path, title):
     if len(sets) > 1:
         o.append('<text x="125" y="-80" font-size="6">' + " ".join(
             f'<tspan fill="{COLORS[i % 8]}">S{esc(sz)}</tspan>' for i, (sz, _) in enumerate(sets)) + '</text>')
-    pts_txt = lambda pts, off: " ".join(f"{x:.1f},{y:.1f}" for x, y in (mm(p, off) for p in pts))
+        o.append('<text x="125" y="-68" font-size="5">All sizes: solid CUT, dashed SEAM; marks match size color</text>')
+    pts_txt = lambda pts, off: " ".join(f"{x:.3f},{y:.3f}" for x, y in (mm(p, off) for p in pts))
     for i, off in enumerate(offs):
         for j, (sz, r) in enumerate(sets):
             p, col = r["pieces"][i], COLORS[j % 8]
-            if j == 0:
-                o.append(f'<polygon points="{pts_txt(cut_line(p), off)}" fill="none" stroke="#000" stroke-width="0.6"/>')
-            o.append(f'<polygon points="{pts_txt(outline(p), off)}" fill="none" stroke="{col}" stroke-width="0.3"'
-                     + (' stroke-dasharray="3 1.5"/>' if j == 0 else '/>'))
-            if j:
-                continue
+            o.append(f'<g data-size={quoteattr(str(sz))} data-piece={quoteattr(str(p["name"]))} '
+                     f'data-cut={quoteattr(str(p.get("cut", "")))}>')
+            o.append(f'<polygon data-layer="CUT" points="{pts_txt(cut_line(p), off)}" '
+                     f'fill="none" stroke="{col}" stroke-width="0.6"/>')
+            o.append(f'<polygon data-layer="SEAM" points="{pts_txt(outline(p), off)}" fill="none" '
+                     f'stroke="{col}" stroke-width="0.3" stroke-dasharray="3 1.5"/>')
             for hl in p.get("holes", []):
-                o.append(f'<polygon points="{pts_txt(outline(hl), off)}" fill="none" stroke="#000" stroke-width="0.6"/>')
-            for e in p.get("fold", []):
-                o.append(f'<polyline points="{pts_txt(edge(p, e), off)}" fill="none" stroke="#000" '
-                         'stroke-width="1" stroke-dasharray="8 2 2 2"/>')
-            for a, b in notches(p):
-                (x1, y1), (x2, y2) = mm(a, off), mm(b, off)
-                o.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="#000" stroke-width="0.6"/>')
-            if p.get("grain"):
-                (x1, y1), (x2, y2) = mm(p["grain"][0], off), mm(p["grain"][1], off)
-                o.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="#000" stroke-width="0.4"/>')
-                for (xa, ya), (xb, yb) in (((x1, y1), (x2, y2)), ((x2, y2), (x1, y1))):
-                    l = math.hypot(xb - xa, yb - ya) or 1
-                    ux, uy = (xb - xa) / l, (yb - ya) / l
-                    for s in (1, -1):
-                        o.append(f'<line x1="{xa:.1f}" y1="{ya:.1f}" x2="{xa + ux * 8 - s * uy * 3:.1f}" '
-                                 f'y2="{ya + uy * 8 + s * ux * 3:.1f}" stroke="#000" stroke-width="0.4"/>')
+                for layer, style in (("CUT", 'stroke-width="0.6"'),
+                                     ("SEAM", 'stroke-width="0.3" stroke-dasharray="3 1.5"')):
+                    o.append(f'<polygon data-layer="{layer}" data-hole={quoteattr(str(hl.get("name", "")))} '
+                             f'points="{pts_txt(outline(hl), off)}" fill="none" stroke="{col}" {style}/>')
+            for layer, pts in construction_marks(p):
+                o.append(f'<polyline data-layer="{layer}" points="{pts_txt(pts, off)}" fill="none" '
+                         f'stroke="{col}" stroke-width="0.4"/>')
             cx, cy = center(p, off)
             for k, txt in enumerate([p["name"], f"Size {sz}", p.get("cut", "")]):
-                o.append(f'<text x="{cx:.1f}" y="{cy + k * 9:.1f}" font-size="7" text-anchor="middle">{esc(txt)}</text>')
+                o.append(f'<text x="{cx:.1f}" y="{cy + j * 27 + k * 9:.1f}" font-size="7" '
+                         f'fill="{col}" text-anchor="middle">{esc(txt)}</text>')
+            o.append('</g>')
     o.append("</svg>")
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(o))
 
 
 def write_dxf(pieces, offs, path, size):
-    L = ["0", "SECTION", "2", "HEADER", "9", "$ACADVER", "1", "AC1009", "0", "ENDSEC", "0", "SECTION", "2", "ENTITIES"]
-
+    """R2010 DXF, explicit millimetres; no unitless legacy fallback."""
+    try:
+        import ezdxf
+    except ImportError as err:
+        raise ValueError("Validated DXF export requires ezdxf; install the documented export dependencies") from err
+    doc = ezdxf.new("R2010")
+    doc.units = 4
+    ms = doc.modelspace()
+    for layer in ("CUT", "SEAM", "DART", "INTERNAL", "BUTTON", "FOLD", "NOTCHES", "GRAIN", "TEXT"):
+        doc.layers.new(layer)
     def line(a, b, layer):
-        L.extend(["0", "LINE", "8", layer, "10", f"{a[0]:.3f}", "20", f"{-a[1]:.3f}", "30", "0",
-                  "11", f"{b[0]:.3f}", "21", f"{-b[1]:.3f}", "31", "0"])
-
+        ms.add_line((round(a[0],3), round(-a[1],3)), (round(b[0],3), round(-b[1],3)), dxfattribs={"layer":layer})
     def closed(pts, off, layer):
         q = [mm(p, off) for p in pts]
         for a, b in zip(q, q[1:] + q[:1]):
             line(a, b, layer)
-
     for p, off in zip(pieces, offs):
         closed(cut_line(p), off, "CUT")
         closed(outline(p), off, "SEAM")
         for hl in p.get("holes", []):
             closed(outline(hl), off, "CUT")
             closed(outline(hl), off, "SEAM")
-        for a, b in notches(p):
-            line(mm(a, off), mm(b, off), "NOTCHES")
-        if p.get("grain"):
-            line(mm(p["grain"][0], off), mm(p["grain"][1], off), "GRAIN")
+        for layer, pts in construction_marks(p):
+            for a, b in zip(pts, pts[1:]):
+                line(mm(a, off), mm(b, off), layer)
         cx, cy = center(p, off)
         for k, txt in enumerate([p["name"], f"Size {size}", p.get("cut", "")]):
-            L.extend(["0", "TEXT", "8", "TEXT", "10", f"{cx:.1f}", "20", f"{-(cy + k * 9):.1f}", "30", "0",
-                      "40", "6", "1", txt])
-    L.extend(["0", "ENDSEC", "0", "EOF"])
-    with open(path, "w", encoding="ascii", errors="replace", newline="\r\n") as f:
-        f.write("\n".join(L) + "\n")
+            ms.add_text(str(txt), dxfattribs={"layer":"TEXT", "height":6, "insert":(cx, -(cy+k*9))})
+    doc.saveas(path)
+    from validation import validate_dxf
+    validate_dxf(path)
 
 
 def clo3d_points(piece, off):
@@ -1194,6 +1385,8 @@ def clo3d_points(piece, off):
 def write_clo3d(pieces, offs, path, size, seams=None, holds=None):
     """Net outline (CLO3D adds its own allowances), fold pieces unfolded, y upwards, in mm.
     Each piece keeps its edge names: CLO3D line i is edge i of the `edges` list."""
+    if any(p.get("darts_in") for p in pieces):
+        raise ValueError("Internal dart sewing topology unsupported for CLO3D export")
     out = {"unit": "mm", "size": str(size), "pieces": []}
     for p, off in zip(pieces, offs):
         q = slit_holes(unfold(p))
@@ -1222,7 +1415,12 @@ SEAM_TOL_MM = 1.0
 
 def seam_ease(s_):
     extra = s_[6] if len(s_) > 6 and isinstance(s_[6], dict) else {}
-    return float(extra.get("ease", 0.0)), extra.get("why", "")
+    ease,why=float(extra.get("ease", 0.0)),extra.get("why", "")
+    if not math.isfinite(ease) or ease <= -1 or (ease and not why):
+        raise ValueError("Seam ease must be finite, greater than -1, and have an independent reason")
+    if ease and ("dart" in why.lower() or why.lower() in ("side seam","princess seam","forearm seam")):
+        raise ValueError("Ordinary side and dart seams require zero ease")
+    return ease,why
 
 
 def seam_table(cloj, seams):
@@ -1256,8 +1454,12 @@ def write_seam_table(rows, path):
 
 
 def _tangent_end(piece, i, at_start):
-    pts = edge(piece, i, 64)
-    a, b = (pts[0], pts[1]) if at_start else (pts[-2], pts[-1])
+    nds = piece["outline"]
+    n, end = nds[i], nds[(i + 1) % len(nds)]["p"]
+    if "c" in n:
+        a, b = (n["p"], n["c"][0]) if at_start else (n["c"][1], end)
+    else:
+        a, b = n["p"], end
     l = dist(a, b) or 1
     return ((b[0] - a[0]) / l, (b[1] - a[1]) / l)
 
@@ -1373,7 +1575,7 @@ def within_checks(pieces):
         for q in resample(outline(p, 24)):
             if not inside_polygon(q, poly):
                 worst = max(worst, min(seg_dist(q, a, b) for a, b in segs))
-        out.append(check(f"{p['name']}: lies within {parent['name']} (cm outside)", worst, 0, WITHIN_TOL_CM))
+        out.append(check(f"{p['name']}: lies within {parent['name']} (cm outside)", 0.0 if worst < 1e-10 else worst, 0, WITHIN_TOL_CM))
     return out
 
 
@@ -1424,37 +1626,131 @@ def rounded(o):
 
 
 def export(sets, out, title, allowance=None):
+    """Stage a whole bundle; failed checks retain editable diagnostics only under rejected/."""
+    from validation import finite, paths, darts, proportions, seam_chains
+    work = copy.deepcopy(sets)
     os.makedirs(out, exist_ok=True)
-    for _, r in sets:
-        r["pieces"], r["seams"] = expand_mirrors(r["pieces"], r.get("seams"))
-    if allowance is not None:
-        for _, r in sets:
+    # Refuse to replace existing deliverables: callers use fresh output directories.
+    if any(n.startswith(("pattern", "clo3d_", "pieces_")) for n in os.listdir(out)):
+        raise ValueError("Output contains a previous bundle; choose a fresh --out directory")
+    with tempfile.TemporaryDirectory(prefix="pattern-stage-", dir=out) as stage:
+        for sz, r in work:
+            finite(r)
+            r["pieces"], r["seams"] = expand_mirrors(r["pieces"], r.get("seams"))
+            expanded_chains = []
+            for contract in r.get("seam_chains", []):
+                sides=("L","R") if any("{side}" in row[0] for key in ("a","b") for row in contract[key]) else (None,)
+                for side in sides:
+                    c=copy.deepcopy(contract)
+                    if side:
+                        for key in ("a","b"):
+                            c[key]=[[nm.replace("{side}",side),a,b] for nm,a,b in c[key]]
+                    expanded_chains.append(c)
+            r["seam_chains"]=expanded_chains
+            expanded_holds = []
+            for h in r.get("holds", []):
+                sides = ("L", "R") if any("{side}" in str(h.get(k, "")) for k in ("top", "under")) else (None,)
+                for side in sides:
+                    q = copy.deepcopy(h)
+                    if side:
+                        for k in ("top", "under"):
+                            q[k] = q[k].replace("{side}", side)
+                        if side == "R":
+                            q["at"] = {k: [-v[0], v[1]] for k, v in q["at"].items()}
+                    expanded_holds.append(q)
+            r["holds"] = expanded_holds
+            by_name={p["name"]:p for p in r["pieces"]}
+            for h in expanded_holds:
+                if h.get("top") not in by_name or h.get("under") not in by_name:
+                    raise ValueError("Hold references a missing top/under piece")
+                names=[n.get("name") for n in by_name[h["top"]]["outline"]]
+                if len(h.get("edge",[]))!=2 or any(n not in names for n in h["edge"]):
+                    raise ValueError("Hold references a missing top edge")
+                if set(h.get("at",{}))!=set(h["edge"]):
+                    raise ValueError("Hold placement must name both edge endpoints")
+            if allowance is not None:
+                for p in r["pieces"]:
+                    p["allowance"] = allowance
+            checks = r.setdefault("checks", [])
             for p in r["pieces"]:
-                p["allowance"] = allowance
-    write_svg(sets, os.path.join(out, "pattern.svg"), title)
-    offs, _, _ = layout([r["pieces"] for _, r in sets])
-    for sz, r in sets:
-        write_dxf(r["pieces"], offs, os.path.join(out, f"pattern_{sz}.dxf"), sz)
-        cloj = write_clo3d(r["pieces"], offs, os.path.join(out, f"clo3d_{sz}.json"), sz, r.get("seams"), r.get("holds"))
-        checks = r.setdefault("checks", [])
-        for p in r["pieces"]:
-            checks += fold_checks(p)
-            for c in (crossing_check(p), neck_check(p)):
-                if c:
-                    checks.append(c)
-        checks += within_checks(r["pieces"])
-        if r.get("seams"):
-            rows = seam_table(cloj, r["seams"])
-            write_seam_table(rows, os.path.join(out, f"seams_{sz}.md"))
-            bad = [x for x in rows if not x[8]]
-            checks.append(check(f"Seams: lengths match within {SEAM_TOL_MM:.0f} mm or declared ease, "
-                                f"{len(rows)} seams (failures)", len(bad), 0, 0))
-            for x in bad[:12]:
-                checks.append(check(f"  seam {x[0]} {x[1]} / {x[3]} {x[4]} (mm, {x[7] or 'no ease declared'})",
-                                    x[2] if x[2] is not None else -1, (x[5] or 0) * (1 + x[6]), SEAM_TOL_MM))
-        write_clo_script(os.path.join(out, f"clo3d_{sz}.json"), os.path.join(out, f"clo3d_{sz}.py"))
-        with open(os.path.join(out, f"pieces_{sz}.json"), "w", encoding="utf-8") as f:
-            json.dump(rounded({"title": title, "size": sz, "pieces": r["pieces"]}), f, ensure_ascii=False, indent=1)
+                try:
+                    paths(self_module(), p)
+                    checks += fold_checks(p) + darts(self_module(), p)
+                    c = neck_check(p)
+                    if c:
+                        checks.append(c)
+                except ValueError as err:
+                    checks.append(check(str(err), 1, 0, 0))
+            checks += within_checks(r["pieces"])
+            r["proportion_results"], pc = proportions(self_module(), r)
+            checks += pc
+            r["seam_chain_results"], cc = seam_chains(self_module(), r)
+            checks += cc
+            # Named seam lengths are checked even when fitted shell export is unsupported.
+            cloj = {"pieces": []}
+            for p in r["pieces"]:
+                q = slit_holes(unfold(p))
+                cloj["pieces"].append({"name":p["name"], "edges":[
+                    {"line":i, "from":n.get("name", ""), "length_mm":length(edge(q,i,64))*10}
+                    for i,n in enumerate(q["outline"])]})
+            if r.get("seams"):
+                rows = seam_table(cloj, r["seams"])
+                write_seam_table(rows, os.path.join(stage, f"seams_{sz}.md"))
+                bad = [x for x in rows if not x[8]]
+                checks.append(check(f"Seams: lengths match within {SEAM_TOL_MM:.0f} mm or declared ease, "
+                                    f"{len(rows)} seams (failures)", len(bad), 0, 0))
+                for x in bad:
+                    checks.append(check(f"seam {x[0]} {x[1]} / {x[3]} {x[4]} (mm)",
+                                        x[2] if x[2] is not None else -1, (x[5] or 0)*(1+x[6]), 1))
+            internal = any(p.get("darts_in") for p in r["pieces"])
+            r["shell_status"] = {"supported": not internal and r.get("shell_status", {}).get("supported", True),
+                                 "reason": "Internal dart sewing topology unsupported" if internal else
+                                 r.get("shell_status", {}).get("reason", "Outline transfer only; no simulation or fit validation")}
+            # Full precision editable data avoids losing constraints through coordinate rounding.
+            data = {k:v for k,v in r.items() if k != "checks"}
+            data.update(title=title, size=sz, validation_status="pending")
+            with open(os.path.join(stage, f"pieces_{sz}.json"), "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=1, allow_nan=False)
+        good = all(c["expected"] is None or abs(c["value"]-c["expected"]) <= c["tol"]
+                   for _,r in work for c in r["checks"])
+        if good:
+            try:
+                offs, _, _ = layout([r["pieces"] for _,r in work])
+                for sz,r in work:
+                    for p,off in zip(r["pieces"],offs):
+                        paths(self_module(), p, off)
+                    write_dxf(r["pieces"], offs, os.path.join(stage, f"pattern_{sz}.dxf"), sz)
+                    if r["shell_status"]["supported"]:
+                        path = os.path.join(stage,f"clo3d_{sz}.json")
+                        write_clo3d(r["pieces"],offs,path,sz,r.get("seams"),r.get("holds"))
+                        write_clo_script(path,os.path.join(stage,f"clo3d_{sz}.py"))
+                write_svg(work, os.path.join(stage,"pattern.svg"), title)
+            except ValueError as err:
+                work[0][1]["checks"].append(check(str(err),1,0,0))
+                good = False
+        target = out if good else os.path.join(out,"rejected")
+        os.makedirs(target,exist_ok=True)
+        for name in os.listdir(stage):
+            if not good and not name.startswith(("pieces_", "seams_")):
+                continue
+            path = os.path.join(stage,name)
+            if name.startswith("pieces_"):
+                with open(path,encoding="utf-8") as f:
+                    data=json.load(f)
+                data["validation_status"]="passed_2d" if good else "rejected"
+                with open(path,"w",encoding="utf-8") as f:
+                    json.dump(data,f,ensure_ascii=False,indent=1,allow_nan=False)
+            shutil.move(path,os.path.join(target,name))
+        if not good:
+            with open(os.path.join(target,"checks.json"),"w",encoding="utf-8") as f:
+                json.dump({str(sz):r["checks"] for sz,r in work},f,indent=1)
+        for (_, original), (_, computed) in zip(sets, work):
+            original.update(computed)
+        return good
+
+
+def self_module():
+    return sys.modules[__name__]
 
 
 def report(sets):
@@ -1463,16 +1759,17 @@ def report(sets):
         print(f"\n== Size {sz}")
         for c in r["checks"]:
             lab = c["label"]
+            display_value = f'{c["value"]:.3f}'
             unit = ("mm" if "(mm" in lab or "mm)" in lab else "deg" if "(deg)" in lab
                     else "" if "(failures)" in lab or "(count)" in lab else "cm")
             label = (lab.replace(" (mm)", "").replace(", mm)", ")").replace(" (deg)", "")
                      .replace(" (failures)", ", failures").replace(" (count)", ""))
             if c["expected"] is None:
-                print(f"   {label}: {c['value']} {unit}")
+                print(f"   {label}: {display_value} {unit}")
                 continue
             good = abs(c["value"] - c["expected"]) <= c["tol"]
             ok &= good
-            print(f" {'OK' if good else '!!'} {label}: {c['value']} {unit} (expected {c['expected']} ± {c['tol']})")
+            print(f" {'OK' if good else '!!'} {label}: {display_value} {unit} (expected {c['expected']} ± {c['tol']})")
     return ok
 
 # ------------------------------------------------------------------ direct send to CLO3D
@@ -1708,15 +2005,22 @@ def load_measurements(args):
     if args.measurements:
         with open(args.measurements, encoding="utf-8") as f:
             own = json.load(f)
-    body = own.pop("body", None) or args.body
-    return body, own, {**EASE[body], **own.pop("ease", {})}
+    body, _, ease, _ = resolve_measurements(args.body, args.size, own)
+    return body, {k:v for k,v in own.items() if k not in ("body", "ease")}, ease
 
 
 def cmd_glove(args):
+    if args.measurements and args.sizes:
+        raise ValueError("--measurements and --sizes cannot be combined; use a single personal size")
     own = {}
     if args.measurements:
         with open(args.measurements, encoding="utf-8") as f:
-            own = json.load(f).get("hand", {})
+            data = json.load(f)
+            if set(data) - {"hand"}:
+                raise ValueError("Glove measurements accept only hand (in mm)")
+            own = data.get("hand", {})
+            if set(own) - set(GLOVE_HAND) or any(not isinstance(v, (int,float)) or not math.isfinite(v) or v <= 0 for v in own.values()):
+                raise ValueError("Unsupported or invalid hand measurements")
     sizes = args.sizes.split(",") if args.sizes else [args.size or "7"]
     sets = []
     for sz in sizes:
@@ -1731,7 +2035,13 @@ def cmd_glove(args):
             p["name"] = "Glove L " + p["name"]
         seams = [[f"Glove {side} {a[0]}", a[1], a[2], f"Glove {side} {a[3]}", a[4], a[5]] + list(a[6:])
                  for side in ("L", "R") for a in left["seams"]]
-        sets.append((sz, {"pieces": left["pieces"] + right, "checks": left["checks"], "seams": seams}))
+        sources = {k: {"source": "input" if k in own else "table", "reference_size":str(sz)} for k in h}
+        if args.length is not None:
+            sources["end_below_wrist"]={"source":"command_line", "input_unit":"cm"}
+        if args.end_girth is not None:
+            sources["end_girth"]={"source":"command_line", "input_unit":"cm"}
+        sets.append((sz, {"pieces": left["pieces"] + right, "checks": left["checks"], "seams": seams, "resolved_measurements": h, "measurement_unit": "mm",
+                          "measurement_provenance": sources}))
     export(sets, args.out, "glove", args.allowance)
     ok = report(sets)
     print(f"\nFiles written to {os.path.abspath(args.out)}")
@@ -1739,6 +2049,8 @@ def cmd_glove(args):
 
 
 def cmd_block(args):
+    if args.measurements and args.sizes:
+        raise ValueError("--measurements and --sizes cannot be combined; use a single personal size")
     if args.block == "glove":
         return cmd_glove(args)
     body, own, a = load_measurements(args)
@@ -1752,7 +2064,10 @@ def cmd_block(args):
             missing = sorted(set(std) - set(own))
             if missing:
                 print("Measurements taken from the standard table:", ", ".join(missing))
-        sets.append((sz, build(args.block, m, a, body)))
+        res = build(args.block, m, a, body)
+        _, _, _, prov = resolve_measurements(body, sz, own)
+        res.update(resolved_measurements=m, measurement_provenance=prov, resolved_ease=a, measurement_unit="cm", body=body)
+        sets.append((sz, res))
     export(sets, args.out, f"{args.block} {body}", args.allowance)
     ok = report(sets)
     print(f"\nFiles written to {os.path.abspath(args.out)}")
@@ -1812,12 +2127,12 @@ def cmd_piece(args):
         if len(p.get("outline", [])) < 3 or not all(len(n.get("p", [])) == 2 for n in p["outline"]):
             raise SystemExit(f"Invalid piece: {p.get('name', '?')} (at least 3 nodes with \"p\": [x, y])")
     sz = str(data.get("size", "one"))
-    sets = [(sz, {"pieces": data["pieces"], "checks": [], "seams": data.get("seams", [])})]
+    sets = [(sz, dict(data, checks=[], seams=data.get("seams", [])))]
     export(sets, args.out, data.get("title", "pattern"), args.allowance)
     ok = report(sets)
     for p in sets[0][1]["pieces"]:
         print(f"{p['name']}: " + ", ".join(f"edge {i} = {length(edge(p, i)):.2f} cm" for i in range(len(p["outline"]))))
-    print(f"Files written to {os.path.abspath(args.out)}")
+    print(f"Output diagnostics/files: {os.path.abspath(args.out)}")
     return 0 if ok else 2
 
 
@@ -1942,16 +2257,30 @@ def test():
         with open(os.path.join(ex, sp_), encoding="utf-8") as f:
             res_ = garment.run(json.load(f))
         with tempfile.TemporaryDirectory() as d:
-            cut_ = [("t", {"pieces": res_["cut"] + res_["lining"], "checks": list(res_["checks"])})]
-            sh_ = [("t", {"pieces": res_["shell3d"], "seams": res_["seams"], "holds": res_["holds"], "checks": []})]
-            export(cut_, d, "t")
-            export(sh_, os.path.join(d, "3d"), "t")
-            for c in cut_[0][1]["checks"] + sh_[0][1]["checks"]:
-                assert c["expected"] is None or abs(c["value"] - c["expected"]) <= c["tol"], (sp_, c)
+            # Keep the original construction assertions, then test the narrowed export contract.
+            for c in res_["checks"]:
+                assert c["expected"] is None or abs(c["value"]-c["expected"]) <= c["tol"], (sp_,c)
+            ok_ = garment.write(res_, d)
+            if sp_ == "velvet-coat/coat.json":
+                assert not ok_, "Known wide collar allowance must be rejected, not repaired silently"
+                assert not os.path.exists(os.path.join(d,"pattern.svg"))
+                with open(os.path.join(d,"rejected","checks.json"),encoding="utf-8") as f:
+                    rejected_ = json.load(f)
+                assert any("Back: CUT:" in c["label"] for rows in rejected_.values() for c in rows)
+            else:
+                assert ok_, sp_
+                with open(os.path.join(d,"pieces_38.json"),encoding="utf-8") as f:
+                    saved_ = json.load(f)
+                if sp_.endswith("jacket_fitted.json"):
+                    assert saved_["shell_status"]["supported"] is False
+                    assert any(p.get("darts_in") for p in saved_["pieces"])
+                    assert not os.path.exists(os.path.join(d,"clo3d")), "Fitted shell must be suppressed"
+                else:
+                    assert os.path.exists(os.path.join(d,"clo3d","clo3d_38.json"))
     gr = tr_["grain"]
     ys_ = [n["p"][1] for n in tr_["outline"]]
     assert all(min(ys_) <= g[1] <= max(ys_) for g in gr), ("grain line outside the trank", gr)
-    print("All tests pass.")
+    print("All bounded tests pass; fitted shell unsupported, velvet coat allowance rejected as expected.")
     return 0
 
 
@@ -1967,11 +2296,11 @@ def main():
             p.add_argument("--length", type=float, help="glove: end of the glove below the wrist crease, cm")
             p.add_argument("--end-girth", type=float, help="glove: arm girth at the end of the glove, cm")
             p.add_argument("--out", default="pattern_out")
-            p.add_argument("--sizes", help="list for grading, e.g. 36,38,40")
+            p.add_argument("--sizes", help="standard-only grading, e.g. 36,38,40; incompatible with --measurements")
             p.add_argument("--allowance", type=float, help="default seam allowance in cm (hems unchanged)")
         p.add_argument("--body", choices=("women", "men", "children"), default="women")
         p.add_argument("--size", help="standard size (women 34-48, men 44-58, children: age 4-14; glove: 6 to 10)")
-        p.add_argument("--measurements", help="JSON file of personal measurements in cm")
+        p.add_argument("--measurements", help="personal body JSON in cm (glove hand in mm); unsupported keys and --sizes combination rejected")
     p = sp.add_parser("garment", help="draft a whole garment from a spec (references/garment-spec.md)")
     p.add_argument("spec")
     p.add_argument("--out", default="garment_out")
@@ -2034,4 +2363,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except (ValueError, OSError, ImportError) as err:
+        print(f"Error: {err}", file=sys.stderr)
+        sys.exit(2)

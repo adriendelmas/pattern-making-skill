@@ -34,7 +34,10 @@ JSON format read by `python scripts/pattern.py piece file.json` and produced by 
   - `c`: makes the edge leaving this node curved. These are the two control points of a cubic Bezier
     curve towards the next node.
   - `dart: true`: the node is a dart point. The nodes just before and after are the dart legs. The cut
-    line bridges the dart opening.
+    line bridges the dart opening. Both boundary dart legs must be straight: omit `c` on the preceding
+    mouth node (mouth to apex) and the dart node (apex to next mouth). Any Bezier definition on either
+    leg is rejected, including collinear, overshooting or looping controls. Curved adjacent seams
+    remain supported; curved dart closure is not implemented.
   - `name`: optional, to find your way.
 - **Edges**: edge `i` runs from node `i` to node `i + 1`. The last edge returns to the first node.
 - **`allowance`**: default seam allowance in cm. **`allowances`**: allowance per edge, key = edge number
@@ -95,3 +98,33 @@ On every export the engine checks, for every garment:
 - For a curve to meet a fold edge at a right angle, place its last control point at the same height as
   the end node.
 - The `piece` command prints the length of each edge: use it to check that seams match.
+
+
+## Validated export contract
+
+- Editable specs use cm and retain full coordinate precision, `seams`, `holds`, `construction`,
+  `resolved_measurements`, provenance and `proportion_contract`. Reexport ignores stored checks/pass flags.
+- `darts_in` is a three-point triangle (tip, mouth1, mouth2) or four-point fish dart
+  (tip1, mouth1, tip2, mouth2). Each tip's two legs must match within 1 mm. Outline dart nodes retain
+  `dart:true`; their legs and folded-seam tangent continuity are checked independently of seam declarations.
+- `lines`, `buttons`, `fold`, `grain`, and `notches` share geometry across SVG/DXF/PNG. Buttons are placement
+  crosses, not hole/diameter specifications. DXF uses DART/INTERNAL/BUTTON/FOLD/GRAIN/NOTCHES layers.
+- Mirror transforms affect absolute internal marks and remap edge-indexed attributes. Fold expansion
+  duplicates internal marks across the fold. Expanded JSON is not expanded a second time on reexport.
+- `notches` accepts distance `d` (negative counts from edge end) or fraction `t` consistently in all formats.
+- Final CUT and SEAM must be finite, nondegenerate simple closed paths, including exported precision.
+  Offset failures are rejected without polygon repair. Use a smaller supported allowance or revise the
+  design intentionally. Source input is preserved and failed bundles are stored under `rejected/`.
+- DXF is R2010 with `$INSUNITS=4`; there is no implicit legacy R12 fallback. SVG's physical mm size and
+  viewBox use the same scale. Verify the exported test square before printing/importing.
+- Graded SVGs include every size's CUT/SEAM, holes, DART/INTERNAL/BUTTON/FOLD/GRAIN/NOTCHES paths
+  and printed quantity text. Each size uses its legend color; CUT is solid and SEAM dashed. XML groups
+  identify `data-size`, `data-piece` and `data-cut`; hole paths carry `data-hole`. User labels are XML-escaped.
+- See `photo-to-pattern.md` for executable independent landmark dimension and ratio constraints.
+
+
+Whole-seam contracts may use `seam_chains`: each entry has `a` and `b` lists of
+`[piece, from_node, to_node]` adjacent edge references, `ease_cm` (default 0), and `why`. The summed
+length difference must match independently chosen ease within 1 mm. These declarations are rechecked
+on roundtrip and support `{side}` mirror expansion. `seam_reference_pieces` may hold explicitly named
+construction references, such as the neutral collar before turn-of-cloth additions; they are not cut pieces.

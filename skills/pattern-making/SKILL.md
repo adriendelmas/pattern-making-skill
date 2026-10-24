@@ -1,134 +1,82 @@
 ---
 name: pattern-making
-description: Pattern making, pattern design and sewing (garment drafting, flat pattern design, draping logic, sewing construction). Turns a request, a photo, a technical drawing or a fashion sketch, including sculptural or unconventional volumes, into real patterns drafted the way professional patterns are drafted, for every garment family and accessory (skirts, trousers, bodices, dresses, shirts, sleeves, collars, tailoring, outerwear, knits, lingerie, swimwear, gloves, hats, bags). Adds allowances, notches, grain lines, grades sizes, exports 1:1 SVG, DXF or CLO3D. Use whenever a garment pattern, a sketch to develop, body measurements, ease, grading, a toile, sewing techniques or a 3D garment comes up, whatever the software.
+description: Draft and edit 2D garment pattern blocks and named-piece recipes from explicit measurements, with seam and dart checks, allowances, construction marks, and SVG/mm DXF exports. Includes a clothing construction knowledge base and bounded women's jacket/coat recipes. Use for pattern drafting, reference-photo construction analysis, ease, grading, and toile preparation; exported files do not establish fit or a simulated garment.
 ---
 
 # Pattern making
 
-Universal pattern-making skill. It drafts like a professional pattern maker: from the construction of
-real garments and established methods, never from a silhouette alone. The knowledge is in `references/`,
-the calculations are done by `scripts/pattern.py` (Python 3.8 or newer, standard library only).
+Use `scripts/pattern.py` for geometry; load resources relative to this skill's directory, regardless of
+working directory. Core drafting uses Python's standard library. Validated exports require **ezdxf and
+Shapely**; optional PNG sheets require Pillow. See the repository README for installation and developer checks.
 
-## Rules
+## Before drafting
 
-1. **Know the construction before drafting.** From a photo or a drawing, run the analysis protocol
-   (`references/reference-analysis.md`): every seam, fold, piece, finish, with evidence and confidence,
-   dimensions measured at scale on the photo, and its checklist answered line by line (front edge and
-   overlap, closure, symmetry, collar, shoulders, volume, pockets...). A blank line is a misread garment.
-   From a fashion sketch, follow `references/design-from-sketch.md`. Write the construction sheet first.
-2. **Draft like real patterns.** For every garment type, follow the technique sheet of its family in
-   `references/techniques/`. If the construction is not covered there, look up how published patterns
-   and pattern-making books draft it (web search, pattern images the person gives), study their pieces,
-   and draft the same way. Never invent a construction a pattern maker would not recognise.
-3. **Always start from measurements.** Ask for the measurements needed (`references/measurements.md`). If
-   they are missing, start from a standard size and say clearly which values are estimated.
-4. **Never calculate in your head.** Coordinates go through the script. An error of a few millimetres is
-   repeated on every seam.
-5. **Read the checks.** Each draft prints a report. A line marked `!!` must be fixed before going on.
-6. **Validate in 3D or on a toile, and correct the pattern, not the simulation.** When a piece is too
-   complex to place automatically in CLO3D, hand it over to the person (`references/clo3d.md`).
-7. **Stay neutral on the method.** The engine's blocks are proportional and tied to no author. If the
-   person follows a given method (Aldrich, Armstrong, Müller, Esmod, Bunka, other), use its values.
+- Establish the garment inventory, fabric, construction, body dimensions, finished design dimensions,
+  and seam/ease contracts. The knowledge base covers more families than the executable recipes.
+- For a photo, read [reference-analysis.md](references/reference-analysis.md) and
+  [photo-to-pattern.md](references/photo-to-pattern.md). Without a measured coplanar reference, record
+  relative landmarks and uncertainty. A guessed head/hand length is not calibration. Projected widths
+  are not flat half-girths. Separate observed construction from design assumptions.
+- Read [measurements.md](references/measurements.md). Personal fields override the **chosen/default**
+  table, not an inferred nearest size. Save explicit body/back, arm, leg and rise lengths appropriate to
+  the garment. `height` is not consumed and is rejected. Nominal bodies are assumptions, not wearer measurements.
+- Read the relevant `references/techniques/` sheet and [ease.md](references/ease.md). A block is a starting
+  point; it is not a finished shirt, jeans, T-shirt, or other complete garment.
 
-## Construction laws (checked by the engine on every export)
+## Executable scope
 
-1. **Reciprocal lengths**: edges sewn together have the same length within 1 mm. Every intended difference
-   (cap ease, gathers, easing) is declared on the seam with its ratio and reason.
-2. **Right angles at the fold**: a half piece meets its fold at 90 degrees (neckline, waist, hem), so the
-   unfolded piece has no point or dip.
-3. **Volume needs shaping**: the body is not developable. Curvature is taken by darts, seams, ease or
-   stretch; joints with large movement get inserted pieces (gussets, set-in thumbs, crotch extensions).
-4. **Shapes come from real patterns**: complex pieces (thumbs, gussets, collars, sleeve heads) follow the
-   shapes of published patterns, scaled to the measurements, never an improvised outline.
-
-Every piece cut from another one (facing, interfacing, pocket facing; not linings, which are larger by design) declares it with `"within"`, so the
-engine checks it does not pass its piece; the engine also flags pieces pinched between two wide parts.
-
-A pattern is finished when its report has no `!!` line and its seam table (`seams_<size>.md`) is all OK.
-
-## Whole garments from a spec
-
-Jackets and coats are drafted by `python scripts/pattern.py garment spec.json --out folder`
-(`references/garment-spec.md`): reusable constructions on the bodice block (body ease, extended and padded
-shoulders, darts, boxy or armhole princess with flare, overlap or wrap, notched lapel drafted in place, stand or
-funnel collar, two-piece sleeve matched to the armhole, facings, lining, pockets). It writes the cut pieces and
-the 3D shell for CLO3D with every seam and wrap hold; `python scripts/sheet.py folder/pieces_<size>.json` draws PNG
-sheets (Pillow). Add a construction to `scripts/garment.py` rather than writing a one-off script.
-
-## Any garment as data
-
-Garments the engine has no block for are written as a recipe: pieces with named nodes, Bezier curves, holes
-and mirror pairs, plus a seam list pairing edges by node names, with declared ease
-(`references/piece-format.md`). `python scripts/pattern.py piece recipe.json --out folder` validates it with
-the same laws, exports it, and `clo3d ... --assemble` sews it in CLO3D. No new code per garment.
-
-## Knowledge map
-
-Start with the knowledge base: one entry per garment, piece or technique (recognition, pieces, shape with
-anchors and seam correspondence, drafting, sewing order, fabrics, fit faults, CLO3D, confidence):
-
-```
-python scripts/pattern.py kb search <words>     # English or French, accents ignored
-python scripts/pattern.py kb show <id>
-```
-
-Worked specs: `examples/notched-lapel-jacket/` (fitted and oversize, lined) and `examples/velvet-coat/` (princess,
-flare, 16 cm wrap, funnel collar, lined). Index: `references/kb/INDEX.md`. Format of an entry: `references/kb/FORMAT.md`. A shape marked
-"unverified" must be checked against real drawn patterns before it goes into a pattern.
-
-| Need | Sheet |
+| Task | Starting point and boundary |
 |---|---|
-| Analyse a photo, recognise constructions | `references/reference-analysis.md` |
-| Develop a sketch, sculptural volumes, unconventional cutting | `references/design-from-sketch.md` |
-| Skirts, trousers, shorts, jumpsuits | `references/techniques/skirts-trousers.md` |
-| Bodices, dart manipulation, dresses, tops, shirts | `references/techniques/bodices-dresses-tops.md` |
-| Sleeves, cuffs, plackets, collars, hoods | `references/techniques/sleeves-collars.md` |
-| Jackets, coats, tailoring, outerwear | `references/techniques/tailoring-outerwear.md` |
-| Knits, lingerie, swimwear, activewear | `references/techniques/knits-lingerie-swimwear.md` |
-| Gloves, hats, bags, belts, ties | `references/techniques/accessories.md` |
-| Seams, hems, facings, closures, pockets, gathers, elastic | `references/techniques/sewing-techniques.md` |
-| Engine blocks and how they are drafted | `references/blocks.md` |
-| Dart pivot, slash and spread, fullness | `references/transformations.md` |
-| Measurements, ease, finishes, piece format | `references/measurements.md`, `ease.md`, `finishes.md`, `piece-format.md` |
-| Sending, sewing and simulating in CLO3D | `references/clo3d.md` |
+| Women's, men's, children's primitive blocks | `block skirt/bodice/sleeve/trousers/all`; indicative proportional tables |
+| Glove primitive | Hand resolution and geometry remain available; default Trank/Thumb allowances fail CUT validation and are rejected |
+| Personal block | `--measurements me.json --size 38`; records resolved dimensions and provenance |
+| Standard grading | `--sizes 36,38,40`; personal measurements combined with `--sizes` are rejected, including gloves |
+| Women's outerwear | `garment spec.json`; requires bust and waist dart landmarks. See [garment-spec.md](references/garment-spec.md); the existing velvet-coat allowance is rejected |
+| Men's tee, shirts, knit vests, jeans/shorts | Appropriate no-dart/block starting point plus a dedicated named-piece recipe; no complete built-in recipe is claimed |
+| Other constructions | Knowledge-base guidance plus explicit [piece format](references/piece-format.md); validate the construction on a toile |
+| CLO3D transfer | Outline transfer only; internal-dart sewing topology is unsupported, so fitted shells are suppressed. No simulation or fit validation is implied |
 
-## Workflow
+Search construction knowledge with `python /path/to/skill/scripts/pattern.py kb search <words>` or
+`kb show <id>`. Read `references/kb/INDEX.md` for the index. For sculptural sketches, read
+[design-from-sketch.md](references/design-from-sketch.md).
 
-1. **Understand the request**: garment, wearer, fabric (woven, knit, stretch, leather), intended fit.
-   With an image, write the construction sheet (rule 1). Read the technique sheet of the family.
-2. **Measurements**: `python scripts/pattern.py measurements --body women --size 38` prints every
-   measurement used. For personal measurements, write a JSON file and pass it with `--measurements`.
-3. **Ease**: by garment and fabric (`references/ease.md`), overridden in the measurements file (`"ease"`).
-4. **Base**: `python scripts/pattern.py block <skirt|bodice|sleeve|trousers|all> --body ... --out folder`
-   gives the standard blocks. `block glove --size 7 --length 40 --end-girth 26` drafts a leather glove like
-   real glove patterns (trank, Bolton thumb in a tongued hole, fourchettes) with its seam list; personal
-   hand measurements go under `"hand"` in the measurements file (`references/techniques/accessories.md`). Garments that do not start from these blocks (gloves, hats, bags, circle
-   skirts, sculptural pieces) are drafted directly from their technique sheet, as pieces in the skill's
-   format (`references/piece-format.md`).
-5. **Transformation**: `pivot` closes or transfers a dart, or opens a slash for fullness; `smooth`
-   redraws a hem or a neckline. Methods in `references/transformations.md` and the technique sheets.
-   Finish with `python scripts/pattern.py piece file.json --out folder`, which prints every edge length
-   to check that seams match.
-6. **Finishes and construction**: allowances by seam type, notches, grain, facings, closures
-   (`references/finishes.md`, `references/techniques/sewing-techniques.md`).
-7. **Grading**: `--sizes 36,38,40,42` produces every size and an SVG where they nest.
-8. **Output**:
-   - `pattern.svg`: print at 100 %, check the 10 cm square.
-   - `pattern_<size>.dxf`: for CAD software (layers CUT, SEAM, NOTCHES, GRAIN, TEXT).
-   - `clo3d_<size>.py` and `clo3d_<size>.json`: for CLO3D, with the plugin and MCP server of
-     [clo3d-mcp-extended](https://github.com/adriendelmas/clo3d-mcp-extended). Exact curves, one CLO3D
-     line per pattern edge. Workflow, seams, mesh, placement: `references/clo3d.md`. Defaults for every
-     piece: added collision thickness 0, mesh size by fit.
-   - `pieces_<size>.json`: the skill's editable format, in cm.
+## Draft and validate
 
-## Conventions
+1. Print the body table with `measurements --body women --size 38`, then supply measured/selected
+   overrides in a JSON file. Unsupported keys fail rather than silently disappearing.
+2. Draft a block, supported outerwear spec, or explicit named-piece recipe. Coordinates in editable
+   JSON are **cm**; glove `hand` fields are the documented **mm** exception.
+3. Use `pivot` and `smooth` only when the affected construction marks and constraints are reviewed.
+   Reexport edited JSON with `piece edited.json --out fresh-folder`; saved pass flags are not trusted.
+4. Read every check. Ordinary sides and dart legs require zero ease within **1 mm**. Sleeve-cap,
+   back-shoulder, elbow or other intentional ease must have an independent construction/material
+   contract. Never calculate the permission to ease from the mismatch being tested.
+   Boundary dart legs must use straight edges: `c` is rejected on the incoming mouth node and the
+   dart apex, including collinear Bezier controls. Curved adjacent seams remain supported.
+5. Validate SEAM and final CUT paths, including export precision and DXF readback. Allowance requests
+   that self-intersect are rejected; the exporter does not silently repair a polygon or discard islands.
+6. Reopen exports and check construction marks, quantities, grain, named seams and declared dimension/
+   ratio constraints. Test ranges must come from the design contract, not the generated output.
+7. Use a toile to assess fit and construction. A passed geometric check is not production or fit approval.
 
-- Inputs in centimetres, SVG, DXF and CLO3D outputs in millimetres.
-- Piece axes: x towards the side, y downwards, origin at center front or center back.
-- Symmetric pieces are drafted as half pieces, with an edge "on the fold". The CLO3D export unfolds them.
-- Notches: one notch at the front, two notches at the back.
+## Outputs and failure behavior
 
-## Without Python
+Use a fresh output directory. Validation stages files before publication. A rejected bundle has only
+editable diagnostic JSON, seam tables and checks under `rejected/`; it has no final SVG/DXF/CLO3D bundle.
+Source input files remain untouched by export. `pivot`/`smooth` edit their input unless `--output` is used.
 
-If the agent cannot run a script, apply the methods of `references/` by hand, writing out each
-calculation, and say that the draft was not verified by the automatic checks.
+- `pattern.svg`: every size's CUT/SEAM, holes, construction marks and quantities, with a size/color
+  legend for grading. Physical mm and matching viewBox scale; print at 100% and measure the 10 cm square.
+- `pattern_<size>.dxf`: modern R2010, `$INSUNITS=4`, numeric mm. Layers: CUT, SEAM, DART, INTERNAL,
+  BUTTON, FOLD, NOTCHES, GRAIN, TEXT. Buttons are placement crosses, not holes or button diameters.
+- `pieces_<size>.json`: cm geometry, construction marks, seams/holds, body provenance, and optional
+  `proportion_contract`. Reexport recalculates validation.
+- `seams_<size>.md`: named seam checks where declared. Absence of a seam declaration is not proof of assembly.
+- `clo3d_<size>.json/.py`: only where supported; outline transfer with named seams. See
+  [clo3d.md](references/clo3d.md). Fitted pieces with internal darts never receive an equivalent-shell claim.
+- `python /path/to/skill/scripts/sheet.py folder/pieces_<size>.json`: PNG review sheets using the same
+  construction marks as SVG/DXF. Print the SVG, not the PNG, for 1:1.
+
+For allowances and finish choices read [finishes.md](references/finishes.md); for transformations read
+[transformations.md](references/transformations.md). If execution is unavailable, label manual drafts
+unverified and do not report automated checks as passed.

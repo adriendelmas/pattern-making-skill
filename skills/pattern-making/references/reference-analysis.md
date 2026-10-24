@@ -22,11 +22,14 @@ glove, a gored skirt is not a circle skirt. Do this analysis every time, write i
 5. **Decide each ambiguous point with an evidence table**: for each candidate construction, write what
    it would show in each view, then what the photos actually show. Keep the candidate whose predictions
    match. Give a confidence. If it stays low and the choice changes the pattern, ask the person.
-6. **Measure at scale.** Never estimate a dimension by eye: choose a reference on the body (head height
-   22 to 23 cm, shoulder width, hand length 18 to 19 cm, or the person's measurements), measure it in
-   pixels on the same photo and convert every dimension the checklist asks for.
+6. **Establish what can be measured.** Only convert pixels to centimetres when a measured reference
+   lies in the same plane as the feature, with perspective accounted for. A guessed head height or
+   hand length is not calibration. Otherwise record relative landmarks and plausible ranges. Pose,
+   perspective, a photographed screen's keystone, hidden waist and garment drape limit interpretation;
+   projected width is not flattened half-girth. Select a coherent nominal body and design dimensions
+   separately using [photo-to-pattern.md](photo-to-pattern.md), and identify assumptions.
 7. **Answer the checklist below, line by line.** Each line gets what is seen, the evidence (zone, crop),
-   the measurement when there is one, and a confidence; or "not visible, assumed ...". A line left
+   a defensible measurement or relative range, and qualitative confidence; or "not visible, assumed ...". A line left
    blank is how a garment gets misread: a coat whose front wraps 16 cm was drafted as a closed dress
    because nobody asked where its front edge sat.
 8. **Cross-check with the worn photos**: length relative to the body, ease, where the garment wrinkles,
@@ -40,7 +43,7 @@ glove, a gored skirt is not a circle skirt. Do this analysis every time, write i
 
 | # | Question | What to look at |
 |---|---|---|
-| 1 | **Scale** | Reference used and its size in pixels; every measurement below derives from it |
+| 1 | **Scale** | Measured/coplanar reference if available; otherwise relative landmarks, ranges, and explicit uncertainty |
 | 2 | **Length** | Hem against body landmarks (hip, knee, ankle, floor), how much lies on the floor, heels or flat |
 | 3 | **Opening** | Where it opens: centre front, off centre, side, back, shoulder, or pulled over the head |
 | 4 | **Front edge and overlap** | Is the front edge on the centre line (midpoint of the neck and chin) or off it? Off: overlap or wrap. Measure edge to centre: that is the extension of each front, the overlap is twice it. Which side is on top (women: right over left; men: left over right). Does the overlap run into the collar, stop at a point, run to the hem? Does the front swing open below the last fastening? |
@@ -142,17 +145,21 @@ What the flat and worn photos of a pair of long black leather gloves showed, and
 - **Length**: opera, about 60 cm. Worn, it ruches on the forearm and reaches above the elbow.
 - **Pieces**: trank, Bolton thumb, fourchettes: **3 piece types** per glove.
 
-## Example: long velvet coat (one front runway photo)
+## Historical construction example: long velvet coat
+
+The following dimensions are illustrative design choices from the upstream example, not defensible
+measurements inferred from a single uncalibrated photograph. Keep the construction lesson; select and
+validate a new body/design contract for another garment.
 
 A first analysis listed the princess seams, the flare, the collar and the pockets, but skipped the front edge.
 The coat was drafted with a 4 cm fly and sewn closed at the centre in 3D: a closed dress. The checklist would
 have caught it:
 
 - **Line 4, front edge**: the edge runs from the collar to the hem on the wearer's left of the neck midpoint.
-  Measured against the shoulder width, it sits 8 cm past the centre: each front extends 8 cm, a **16 cm wrap**,
+  An illustrative choice places it 8 cm past the centre: each front extends 8 cm, a **16 cm wrap**,
   right over left; the collar ends overlap the same way; below the hip the fronts swing apart.
 - **Line 5, closure**: a plain edge with no button: **concealed fly** on the right front, to the hip.
-- **Line 10, volume**: hem sweep about 2.5 times the hip width, spreading on the floor: about 6 m all round.
+- **Line 10, volume**: visible projected flare motivates a design choice of 6 m hem sweep; the projected width ratio cannot prove that circumference.
 - **Line 7, collar**: 13 cm at the back, standing away from the neck: a funnel, top edge 8 cm longer than the
   neck edge, interfaced.
 - **Line 8, sleeves**: longer than the arm by about 14 cm, ruching on the forearm.

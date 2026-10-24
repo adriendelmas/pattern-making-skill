@@ -58,25 +58,13 @@ def draw_piece(dr, pc, T, px, fill):
     poly = P.outline(pc, 32)
     dr.polygon([T(q) for q in P.cut_line(pc)], fill=fill, outline=GREY)
     dr.line([T(q) for q in poly] + [T(poly[0])], fill="black", width=3)
-    for i in pc.get("fold", []):
-        dashed(dr, [T(q) for q in P.edge(pc, i)], BLUE, 4, 10)
-    for ln in pc.get("lines", []):
-        dashed(dr, [T(q) for q in ln], GREEN, 2, 8)
-    for dt in pc.get("darts_in", []):
-        dr.line([T(q) for q in dt] + [T(dt[0])], fill="black", width=2)
-    for bt in pc.get("buttons", []):
-        x, y = T(bt)
-        r = 0.9 * px
-        dr.ellipse([x - r, y - r, x + r, y + r], outline="black", width=2)
-    for nt in pc.get("notches", []):
-        pts = P.edge(pc, nt["edge"], 48)
-        q, (tx, ty) = P.point_at(pts, min(nt["d"], P.length(pts)))
-        nv = (ty, -tx)
-        if P.inside_polygon((q[0] + nv[0] * 0.3, q[1] + nv[1] * 0.3), poly):
-            nv = (-nv[0], -nv[1])
-        dr.line([T(q), T((q[0] + nv[0] * 1.2, q[1] + nv[1] * 1.2))], fill="black", width=4)
-    if pc.get("grain"):
-        arrow(dr, T(pc["grain"][0]), T(pc["grain"][1]))
+    for layer, pts in P.construction_marks(pc):
+        if layer in ("FOLD", "INTERNAL"):
+            dashed(dr, [T(q) for q in pts], BLUE if layer == "FOLD" else GREEN, 2, 8)
+        elif layer == "GRAIN":
+            arrow(dr, T(pts[0]), T(pts[1]))
+        else:
+            dr.line([T(q) for q in pts], fill="black", width=2)
 
 
 def sheet(pieces, title, path, width, px, fill):

@@ -50,7 +50,9 @@ measurement is always better.
 }
 ```
 
-Missing keys are taken from the nearest standard size, and the script lists them.
+Missing keys come from the explicitly chosen size, or the default table (women 38, men 48, children age 8).
+The engine does not infer the nearest standard size. Saved pieces include `resolved_measurements`,
+`resolved_ease`, `measurement_unit`, and per-field `measurement_provenance` (input/table/derived).
 `python scripts/pattern.py measurements --measurements file.json` prints the complete set used.
 
 ## Standard sizes in the script
@@ -69,3 +71,19 @@ Indicative values, based on European practice. They serve as fallback and as gra
 - **Sloping or square shoulders**: change the shoulder slope by 0.5 to 1.5 cm, and the armhole by as much.
 - **Prominent stomach**: add length at center front and reduce or remove the front darts.
 - **Asymmetry**: draft both sides separately rather than on the fold.
+
+## Scope and provenance
+
+`height` is not a supported input and does not scale the geometry. Explicitly select `back_length`,
+`arm_length`, `hip_depth`, `body_rise`, `trouser_length` and any relevant finished design lengths.
+`shoulder` is one neck-to-shoulder seam length, not full shoulder breadth. Children's preset lengths
+are scaled from the built-in age table; this is not arbitrary stature-driven drafting.
+
+Unknown fields, unknown ease keys and nonfinite measurements fail. `--measurements` plus `--sizes`
+is rejected for body blocks and gloves. Standard-only grading and single personal sizes are distinct
+supported workflows; personal-base grading is not implemented. Glove inputs under `hand` are in mm,
+as documented in `techniques/accessories.md`; body inputs are cm.
+
+A resolved body record lists all supported fields; each individual block consumes only its relevant
+subset (see tables above). Table/derived values are assumptions. Preserve the original input and state
+which chosen body and finished design dimensions remain to be confirmed on a toile.

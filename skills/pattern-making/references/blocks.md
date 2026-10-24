@@ -1,3 +1,11 @@
+# Current export limits
+
+Body blocks have validated ordinary seam-chain contracts and trued boundary darts. The glove primitive
+still resolves single personal measurements and standard grading, but its default Trank/Thumb allowances
+self-intersect and are rejected by CUT validation (exit 2, only `rejected/` diagnostics). Do not treat the
+primitive glove checks or outline-transfer tests as proof of a usable cutting bundle. No silent repair
+or discarded islands are used. A universal glove allowance construction is outside this bounded fix.
+
 # Block construction
 
 What `scripts/pattern.py` does, to explain, check or adapt it. Notation: B bust, W waist, H hip, ease

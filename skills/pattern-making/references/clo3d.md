@@ -1,3 +1,14 @@
+# Current support boundary
+
+This revision has not run CLO3D. JSON/script export, seam checks and a clean DXF audit do not constitute
+simulation or fit validation. Original integration notes below are upstream reference material.
+
+Internal fish/triangle dart topology is unsupported. `write_clo3d` refuses such pieces; fitted garment
+exports provide correct 2D internal marks and `shell_status.supported=false`, without an equivalent
+shell. Adding visible lines does not sew a dart or consume its waist intake. Ordinary supported outline
+transfers retain fold expansion, named edges and mirror constraints; validate externally on a toile or
+in a separately authorized CLO3D session. No external integration is invoked by the 2D drafting commands.
+
 # CLO3D
 
 This skill is made to work with **clo3d-mcp-extended**, which provides the plug-in to load in CLO3D and an
