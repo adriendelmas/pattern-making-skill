@@ -136,6 +136,16 @@ produce length or ratio. Squared/inverse lengths, unknown references, division b
 nesting are rejected. A recipe coordinate must resolve to length; notch `t` must resolve to ratio.
 Body/finished constraints use the same operations and compare frozen values independently of geometry.
 
+Notch distances retain the core's signed cm semantics: positive `d` walks from the edge start,
+negative `d` counts from its end, and `t` must lie in `[0,1]`. Distance admission uses the edge's
+64-sample length `L`. If `abs(d) > L`, the only compatible value is exactly `round(L,3)`, matching
+`garment.notch_on`'s 0.001 cm storage precision. This permits a rounded endpoint to overshoot by
+at most half that quantum (subject to binary floating-point rounding). There is no comparison
+epsilon or general overshoot allowance, including between `L` and its rounded endpoint. Out-of-range
+values one representable float beyond the rounded endpoint still reject. The recipe's notch values are
+preserved; the unchanged core places them using its existing endpoint clamping and writer sampling.
+This admission rule does not use the separate 1 mm sewing tolerance.
+
 `component.depends_on` must exactly enumerate the parameter references found in that component's piece
 expressions. Every supplied body/design dimension must be consumed by geometry, a frozen constraint,
 port/deduction/relation target, or explicitly listed in `profile.unused` / `design.unused` with a reason.
@@ -174,7 +184,15 @@ and pocket openings/bags/facings through this one implementation. Ordinary relat
 `stretch` and `gather` use a fixed **A/B multiplier**, not percent stretch. Every non-equal relation names
 its target, material ID and independent construction reason. A and B's frozen targets must agree with the
 relation before the measured lengths are compared. The validator never infers permission from mismatch.
-Side, shoulder, inseam and closure purposes only permit equality in v1. For nonuniform easing/gathering,
+Side and inseam purposes only permit equality. Shoulder and closure also permit explicitly declared
+`relation.mode: "ease"` for intentional shoulder ease and closure/facing turn-of-cloth, respectively;
+their purpose remains `shoulder` or `closure`. Stretch and gather remain unsupported for these four
+purposes. Shoulder/closure ease requires the same nonblank `reason`, matching `material_id`, and
+named target of kind `ease` with cm/mm length units as other ease relations. The signed delta is
+independently specified as A minus B; both ports retain their separately frozen length targets.
+No mismatch supplies implicit permission, and measured port, pair, and landmark residuals retain
+the 1 mm limit during validation and saved DXF/SVG verification and reexport.
+For nonuniform easing/gathering,
 split into separate independently contracted ports: within a port, landmark correspondence distributes
 the fixed delta proportionally to B's frozen target.
 

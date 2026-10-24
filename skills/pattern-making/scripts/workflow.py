@@ -424,7 +424,13 @@ def resolve_recipe(recipe, env):
                 if n['edge']>=len(nodes) or ('d' in n)==('t' in n): fail('invalid notch edge/distance')
                 key='d' if 'd' in n else 't';n[key]=val(n[key],'length' if key=='d' else 'ratio',deps)
                 if key=='t' and not 0<=n[key]<=1: fail('notch fraction outside edge')
-                if key=='d' and abs(n[key])>P.length(P.edge(p,n['edge'],64)): fail('notch distance outside edge')
+                if key=='d':
+                    length=P.length(P.edge(p,n['edge'],64))
+                    # garment.notch_on stores round(distance_cm, 3). Admit only
+                    # that exact rounded endpoint when it exceeds edge64 length;
+                    # no geometric epsilon or sewing tolerance, and no mark rewrite.
+                    if abs(n[key])>length and abs(n[key])!=round(length,3):
+                        fail('notch distance outside edge')
         if 'within' in p: string(p['within'],'within')
         if 'holes' in p:
             # Named hole curves use the same core outline grammar, with no separate exports.
@@ -555,7 +561,9 @@ def pair_attachments(attachments, ports, env, dims, material, used):
             obj(rel,['mode','target','reason','material_id'],label='non-equal relation')
             string(rel['reason'],'relation reason')
             if rel['material_id']!=material['id']: fail('relation material mismatch')
-            if a['kind'] in ('side','shoulder','inseam','closure'): fail('ordinary seam requires equal relation')
+            if a['kind'] in ('side','inseam'): fail('ordinary seam requires equal relation')
+            if a['kind'] in ('shoulder','closure') and rel['mode']!='ease':
+                fail('shoulder/closure seam requires equal or explicit ease relation')
             target,unit=lookup(rel['target'],env,used)
             if dims.get(rel['target'],{}).get('kind')!=rel['mode']: fail('relation target kind mismatch')
             if rel['mode']=='ease':
