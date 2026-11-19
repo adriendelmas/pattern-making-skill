@@ -1,7 +1,7 @@
 {
   "name": "pattern-making",
-  "version": "0.1.0",
-  "description": "Garment pattern making for AI agents: blocks from body measurements, dart pivots, slash and spread, seam allowances, notches, grading, 1:1 SVG, DXF and CLO3D export.",
+  "version": "0.2.0",
+  "description": "Garment pattern making for AI agents: blocks and whole garments from body measurements, a community data library (size tables, construction presets, digitised shapes), grading, 1:1 SVG, DXF and CLO3D export.",
   "author": {
     "name": "Adrien Delmas",
     "url": "https://github.com/adriendelmas"
@@ -9,6 +9,14 @@
   "homepage": "https://github.com/adriendelmas/pattern-making-skill",
   "repository": "https://github.com/adriendelmas/pattern-making-skill",
   "license": "MIT",
-  "keywords": ["pattern-making", "sewing", "fashion", "garment", "grading", "clo3d", "dxf"],
+  "keywords": [
+    "pattern-making",
+    "sewing",
+    "fashion",
+    "garment",
+    "grading",
+    "clo3d",
+    "dxf"
+  ],
   "skills": "./skills"
 }

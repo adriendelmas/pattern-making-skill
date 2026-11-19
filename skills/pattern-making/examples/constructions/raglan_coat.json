@@ -1,0 +1,31 @@
+{
+ "title": "Raglan coat",
+ "shaping": "boxy",
+ "fit": {
+  "side_ease": 3.0,
+  "arm_drop": 3.0
+ },
+ "length": {
+  "below_waist": 45
+ },
+ "front": {
+  "extension": 2.5,
+  "buttons": [
+   12,
+   24,
+   36
+  ]
+ },
+ "collar": {
+  "type": "stand",
+  "h_cb": 5
+ },
+ "sleeve": {
+  "type": "raglan",
+  "hem": 30
+ },
+ "facing": {
+  "type": "width",
+  "width": 9
+ }
+}

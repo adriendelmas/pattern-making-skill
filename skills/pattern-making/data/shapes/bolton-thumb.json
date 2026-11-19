@@ -1,0 +1,90 @@
+{
+  "id": "bolton-thumb",
+  "kind": "shape",
+  "title": "Bolton thumb and its hole in the trank (leather glove)",
+  "description": "Hole: along the fold of the trank, round bottom, a V flap at the top freed by a curved slit that runs to a dot (h_D); h_TR and h_TR2 are the two lips of the slit. Thumb: wide oval with two lobes at the top and a cleft (C) on the fold axis; folded, the lobes sewn together make the tip; a slit from the side edge (Ps) to the dot takes the flap.",
+  "unit": "mm",
+  "used_by": "block glove",
+  "reference": {"G": 180},
+  "scale": {"measure": "G"},
+  "outlines": {
+    "hole": {
+      "nodes": [
+        {"name": "h_TL", "p": [0, 0], "c": [[-1, 25], [3.6, 54]]},
+        {"name": "h_B", "p": [13.6, 54], "c": [[23.6, 54], [30.6, 36]]},
+        {"name": "h_RM", "p": [30.6, 24], "c": [[30.6, 16], [29.9, 8.9]]},
+        {"name": "h_TR", "p": [27.9, 3.9], "c": [[25.9, -2.1], [24.4, -8]]},
+        {"name": "h_D", "p": [19.4, -10], "c": [[24.4, -7.4], [24.9706, -1.731]]},
+        {"name": "h_TR2", "p": [26.9706, 4.269]},
+        {"name": "h_V", "p": [14.3, 9.3]}
+      ],
+      "type": "other",
+      "edges": {"slit": [["h_TR", "h_D"], ["h_D", "h_TR2"]]}
+    },
+    "thumb": {
+      "closed": true,
+      "unit_scale": 93.287,
+      "points": [
+        {"name": "C", "p": [0, 0.15], "corner": true},
+        {"name": "LL", "p": [-0.15, 0]},
+        {"name": "a", "p": [-0.29, 0.2]},
+        {"name": "N1", "p": [-0.32, 0.39]},
+        {"name": "N2", "p": [-0.38, 0.58]},
+        {"name": "b", "p": [-0.3, 0.85]},
+        {"name": "B", "p": [0, 1.0]},
+        {"name": "c", "p": [0.27, 0.85]},
+        {"name": "RM", "p": [0.34, 0.48]},
+        {"name": "Ps", "p": [0.35, 0.39]},
+        {"name": "d", "p": [0.3, 0.15]},
+        {"name": "RL", "p": [0.15, 0]}
+      ],
+      "type": "other"
+    }
+  },
+  "seams": [
+    [
+      "thumb",
+      "N1",
+      "Ps",
+      "hole",
+      "h_TR2",
+      "h_TR",
+      {"ease": 0.03, "why": "the thumb is eased into the hole, round its base from notch to notch"}
+    ],
+    [
+      "thumb",
+      "C",
+      "LL",
+      "thumb",
+      "RL",
+      "C",
+      {
+        "ease": 0.008,
+        "why": "the two lobes sewn together make the tip; their edges differ a little on the diagram"
+      }
+    ],
+    [
+      "thumb",
+      "LL",
+      "N1",
+      "thumb",
+      "Ps",
+      "RL",
+      {
+        "ease": -0.049,
+        "why": "side of the thumb: the slit that takes the flap opens in the Ps..RL edge, at a point block glove computes"
+      }
+    ]
+  ],
+  "marks": {"dot": {"outline": "thumb", "p": [0.19, 0.54]}},
+  "sewing": "Thumb edge N1..Ps (through B) onto the hole edge h_TR2, h_V, h_TL, h_B, h_RM, 3 % longer than the hole; thumb slit Ps..dot onto the hole slit h_TR..h_D; lobes C..LL and RL..C sewn together.",
+  "provenance": {
+    "source": "The Shapes of Fabric, leather glove pattern (size about 7): control points read from the published diagram",
+    "confidence": "published",
+    "rights": "Seven hole points and twelve thumb points read from a published diagram, source cited; no drawing reproduced",
+    "extraction": {"method": "diagram", "line": "seam", "deviation_mm": null},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-19",
+    "notes": "The thumb outline is in units of the thumb height (unit_scale gives mm at the reference hand). block glove fits it to the hole edge lengths rather than using unit_scale."
+  }
+}

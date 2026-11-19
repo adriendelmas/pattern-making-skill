@@ -1,0 +1,72 @@
+{
+  "id": "garment",
+  "kind": "construction",
+  "applies_to": "garment",
+  "default": true,
+  "title": "Defaults of a garment spec (jacket on the bodice block)",
+  "unit": "cm (angles in degrees)",
+  "values": {
+    "title": "Garment",
+    "body": "women",
+    "size": null,
+    "measurements": null,
+    "fit": {
+      "side_ease": 1.0,
+      "dart_reduce": 0.0,
+      "neck_widen": 0.0,
+      "neck_drop": 0.0,
+      "arm_drop": 1.5,
+      "across_out": 0.0
+    },
+    "shoulder": {"extend": 0.0, "pad": 0.0},
+    "shaping": "darts",
+    "length": {"below_waist": 23.0, "hip_ease": 6.0, "hem": null},
+    "boxy": {"dart_keep": 1.5},
+    "front": {"extension": 2.0, "buttons": [], "hold_to": null},
+    "collar": {"type": "none"},
+    "sleeve": {
+      "type": "two-piece",
+      "length": null,
+      "hem": 28.0,
+      "ease": 2.5,
+      "cap_height": null,
+      "drop": 0.0,
+      "front_in": 3.0,
+      "back_out": 1.5,
+      "bend": 1.0,
+      "elbow": 0.7,
+      "vent": 0.0,
+      "neck": 4.0,
+      "arm": 3.5,
+      "bow": 1.2,
+      "cap_lower": 3.5,
+      "dart": 2.5,
+      "slope": 25.0,
+      "underarm_drop": 2.5,
+      "radius": 4.0,
+      "gusset": 10.0
+    },
+    "facing": {"type": "auto", "width": 10.0, "back_neck": null},
+    "lining": null,
+    "pockets": null,
+    "allowance": 1.0,
+    "hem_allowance": 4.0
+  },
+  "doc": {
+    "fit": "side_ease per quarter at the side seam, dart_reduce (narrower waist darts), neck_widen, neck_drop (front), arm_drop (armhole lowered), across_out",
+    "shoulder": "extend (shoulder wider), pad (tip raised by the pad thickness)",
+    "length": "below_waist along each seam, hip_ease, hem (full hem circumference of a flared princess)",
+    "front": "extension past the centre front, buttons (heights below the neck point), hold_to (end of the fastened part)",
+    "sleeve": "type and the values of every sleeve type: see references/garment-spec.md",
+    "facing": "type (auto, width, panel), width from the front edge, back_neck depth"
+  },
+  "provenance": {
+    "source": "references/garment-spec.md and the technique sheet tailoring-outerwear.md",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-19",
+    "notes": "Values inside the ranges of the technique sheet; the outline they give was not compared to a published draft."
+  }
+}

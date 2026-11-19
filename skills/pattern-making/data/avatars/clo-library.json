@@ -1,0 +1,40 @@
+{
+  "id": "clo-library",
+  "kind": "avatar",
+  "software": "CLO3D",
+  "default": true,
+  "title": "Arrangement points of CLO3D's library avatars, by piece",
+  "description": "Piece name of the 3D shell -> arrangement point, or {\"name\": point, \"x\", \"y\", \"offset\", \"orientation\"}. {side} is replaced by the wearer's side (L or R). A piece is looked up by its full name, then by its first word. Collars are held off the neck (offset in mm) because a collar placed on the point started inside the neck; glove pieces are drafted fingers up, hence orientation 0.",
+  "arrangement": {
+    "Skirt front": "Leg_Skirt_Front",
+    "Skirt back": "Leg_Skirt_Back",
+    "Bodice front": "Body_Front_Center_2",
+    "Bodice back": "Body_Back_2_{side}",
+    "Sleeve": "Arm_Outside_1_{side}",
+    "Trousers front": "Leg_Front_1_{side}",
+    "Trousers back": "Leg_Back_1_{side}",
+    "Front": "Body_Front_2_{side}",
+    "Side front": "Body_Side_2_{side}",
+    "Back": "Body_Back_2_{side}",
+    "Side back": "Body_Side_2_{side}",
+    "Collar": {"name": "Neck_Collar", "x": 50, "y": 50, "offset": 120},
+    "Top sleeve": "Arm_Outside_1_{side}",
+    "Under sleeve": "Arm_Inside_1_{side}",
+    "Collar stand": {"name": "Neck_Collar", "x": 50, "y": 50, "offset": 100},
+    "Hood": "Head_Side_{side}",
+    "Gusset": "Arm_Inside_1_{side}",
+    "Trank": {"name": "Arm_Outside_3_{side}", "orientation": 0},
+    "Back with side panels": "Body_Back_Center_2",
+    "Thumb": {"name": "Arm_Inside_3_{side}", "orientation": 0},
+    "Fourchette": {"name": "Arm_Inside_3_{side}", "orientation": 0}
+  },
+  "provenance": {
+    "source": "Point names read with get_arrangement_list on a CLO3D 2025.2 library avatar (female, 110 points)",
+    "confidence": "unverified",
+    "rights": "Names of CLO3D's own arrangement points, listed for interoperability",
+    "extraction": {"method": "software"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-19",
+    "notes": "Seen live: Body_Front_Center_2 and _3, Body_Back_Center_2 and _3, Body_Front_2_L, Arm_Outside_1_L and _R, Leg_Skirt_Front and _Back, Neck_Collar, Wrist_Back_R. The other names follow the same pattern and are not confirmed: read your avatar's list with get_scene_summary and correct this file."
+  }
+}

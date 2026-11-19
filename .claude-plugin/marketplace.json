@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "pattern-making-skill",
-  "description": "Garment pattern making skill for AI agents, built to work with clo3d-mcp-extended.",
+  "description": "Garment pattern making skill for AI agents, built to work with clo3d-mcp.",
   "owner": {
     "name": "Adrien Delmas",
     "url": "https://github.com/adriendelmas"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "pattern-making",
-      "description": "Blocks from body measurements, transformations, grading, 1:1 SVG, DXF and CLO3D export.",
+      "description": "Blocks and whole garments from body measurements, community data library, grading, 1:1 SVG, DXF and CLO3D export.",
       "source": "./",
       "category": "design"
     }

@@ -1,0 +1,56 @@
+name: Share a pattern piece
+description: You have a real piece and no Python at hand. Paste the points you measured; we make the file and name you as the source.
+labels: ["shape"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach a photo or a scan: the project keeps data only, never the pattern itself.
+        Lay the piece flat, grain line vertical, and measure its points with a ruler: across (x) and down (y) from the top left corner, in centimetres, going round the seam line clockwise. A point at every corner and notch, and every 3 to 5 cm on curves.
+        Share only what you may share: your own pattern, or public-domain material.
+  - type: input
+    id: piece
+    attributes:
+      label: What the piece is
+      placeholder: "Two-piece hood, side piece, women's parka"
+    validations:
+      required: true
+  - type: input
+    id: size
+    attributes:
+      label: Size of the pattern, and the body measurements it was made for
+      placeholder: "Size 40: bust 92, waist 72, hip 98"
+    validations:
+      required: true
+  - type: textarea
+    id: points
+    attributes:
+      label: Points
+      description: One point per line as x, y in cm; then a name if it is a corner, a notch or the end of a seam, and the word corner if it is one.
+      render: text
+      placeholder: |
+        0, 0, top_left, corner
+        14, 0, top_right, corner
+        14, 12
+        7, 16, bottom
+        0, 12
+    validations:
+      required: true
+  - type: textarea
+    id: edges
+    attributes:
+      label: What each edge is
+      description: Which edge is sewn to what, which is a hem, a fold, or left free.
+    validations:
+      required: true
+  - type: input
+    id: rights
+    attributes:
+      label: Where it comes from, and why you may share it
+      placeholder: "Drafted by me in 2019 / public-domain 1920s pattern"
+    validations:
+      required: true
+  - type: input
+    id: credit
+    attributes:
+      label: How to credit you

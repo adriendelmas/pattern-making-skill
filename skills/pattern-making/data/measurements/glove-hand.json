@@ -1,0 +1,64 @@
+{
+  "id": "glove-hand",
+  "kind": "measurements",
+  "title": "Hand measurements for gloves, size 7, graded by half sizes",
+  "description": "G hand girth, HL hand length, h_* height of each finger base above the wrist crease, F_* finger lengths, Cf_* finger girths, T_o and T_p thumb lengths (outer, palm side), T_g thumb girth, Web_T height of the thumb web, end_below_wrist and end_girth: where the glove ends on the arm. Fingers: I index, M middle, R ring, L little.",
+  "unit": "mm",
+  "bodies": {
+    "hand": {
+      "reference_size": 7,
+      "size_step": 0.5,
+      "sizes_range": [6, 10],
+      "base": {
+        "G": 178,
+        "HL": 175,
+        "h_I": 94,
+        "h_M": 98,
+        "h_R": 94,
+        "h_L": 85,
+        "F_I": 66,
+        "F_M": 77,
+        "F_R": 69,
+        "F_L": 55,
+        "Cf_I": 56,
+        "Cf_M": 58,
+        "Cf_R": 54,
+        "Cf_L": 48,
+        "T_o": 60,
+        "T_p": 45,
+        "T_g": 62,
+        "Web_T": 80,
+        "end_below_wrist": 120,
+        "end_girth": 160
+      },
+      "grade": {
+        "G": 12.7,
+        "HL": 4.5,
+        "h_I": 4.5,
+        "h_M": 4.5,
+        "h_R": 4.5,
+        "h_L": 4.5,
+        "Web_T": 4.5,
+        "F_I": 1.2,
+        "F_M": 1.2,
+        "F_R": 1.2,
+        "F_L": 1.2,
+        "T_o": 1.2,
+        "T_p": 1.2,
+        "Cf_I": 3.2,
+        "Cf_M": 3.2,
+        "Cf_R": 3.2,
+        "Cf_L": 3.2,
+        "T_g": 2
+      }
+    }
+  },
+  "provenance": {
+    "source": "references/techniques/accessories.md, sections 1.5 and 1.6 (sources cited there)",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-19"
+  }
+}

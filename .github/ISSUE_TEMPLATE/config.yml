@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: How to contribute a table, a preset or a real pattern piece
+    url: https://github.com/adriendelmas/pattern-making-skill/blob/main/CONTRIBUTING.md
+    about: Step by step, no code needed.
+  - name: What is still unverified
+    url: https://github.com/adriendelmas/pattern-making-skill/blob/main/COVERAGE.md
+    about: Every entry waiting for someone who knows the real pattern.

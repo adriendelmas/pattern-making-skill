@@ -13,6 +13,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import library  # noqa: E402
 import pattern as P  # noqa: E402
 
 # ------------------------------------------------------------------ geometry
@@ -182,40 +183,29 @@ def notch_on(pc, a, b, d):
 
 # ------------------------------------------------------------------ spec
 
-DEFAULTS = {
-    "title": "Garment", "body": "women", "size": None, "measurements": None,
-    "fit": {"side_ease": 1.0, "dart_reduce": 0.0, "neck_widen": 0.0, "neck_drop": 0.0, "arm_drop": 1.5,
-            "across_out": 0.0},
-    "shoulder": {"extend": 0.0, "pad": 0.0},
-    "shaping": "darts",
-    "length": {"below_waist": 23.0, "hip_ease": 6.0, "hem": None},
-    "boxy": {"dart_keep": 1.5},
-    "front": {"extension": 2.0, "buttons": [], "hold_to": None},
-    "collar": {"type": "none"},
-    "sleeve": {"type": "two-piece", "length": None, "hem": 28.0, "ease": 2.5, "cap_height": None, "drop": 0.0,
-               "front_in": 3.0, "back_out": 1.5, "bend": 1.0, "elbow": 0.7, "vent": 0.0},
-    "facing": {"type": "auto", "width": 10.0, "back_neck": None},
-    "lining": None,
-    "pockets": None,
-    "allowance": 1.0, "hem_allowance": 4.0,
-}
-NOTCHED = {"break": 22.0, "stand": 2.5, "lapel": 7.5, "belly": 1.0, "gorge_y": 7.0, "gorge_angle": 90.0,
-           "notch_lapel": 3.5, "notch_collar": 3.2, "notch_angle": 75.0, "collar_stand": 3.0, "collar_fall": 4.0,
-           "spring": 3.0, "turn_of_cloth": 0.3, "facing_turn": 0.4}
-STAND = {"h_cb": 6.0, "h_cf": 5.5, "funnel": 0.0}
+# The values of every construction live in data/constructions/ (garment.json holds the defaults of a spec, one
+# file per collar); a spec section may name another file of that folder as its "preset".
+DEFAULTS = library.values("garment")
 
 
 def merged(spec):
     out = copy.deepcopy(DEFAULTS)
     for k, v in spec.items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
+            v = dict(v)
+            if v.get("preset"):                        # a construction file of data/constructions/
+                typ, vals = library.preset(v.pop("preset"), k)
+                out[k].update(vals)
+                if typ and "type" not in vals:
+                    out[k]["type"] = typ
             out[k].update(v)
         else:
             out[k] = v
-    if out["collar"]["type"] == "notched":
-        out["collar"] = {**NOTCHED, **out["collar"]}
-    elif out["collar"]["type"] in ("stand", "funnel"):
-        out["collar"] = {**STAND, **out["collar"]}
+    ctype = {"funnel": "stand"}.get(out["collar"]["type"], out["collar"]["type"])
+    if ctype in library.COLLARS:
+        out["collar"] = {**library.values("collar." + ctype), **out["collar"]}
+    if out["pockets"] and not isinstance(out["pockets"], list):
+        out["pockets"] = [out["pockets"]]
     return out
 
 
@@ -697,6 +687,343 @@ def two_piece_sleeve(arm_f, arm_b, depth, c):
             "back_end": "vent_top" if vent else "back_seam_hem"}
 
 
+# ------------------------------------------------------------------ one-piece, raglan and kimono sleeves
+
+
+def sleeve_base(arm_f, arm_b, depth, c, lower=0.0):
+    """One-piece sleeve base: cap = armhole + ease, cap height 5/6 of the armhole depth (lowered by `lower` for a
+    raglan), underarm points at the cap height, straight taper to the hem width."""
+    CH = c["cap_height"] or 5 / 6 * depth - c["drop"] / 2
+
+    def caps(W, ch):
+        Fu, Bu, Cr = (-W / 2, ch), (W / 2, ch), (0.0, 0.0)
+        return (Fu, (-W / 2 + W * 0.18, ch), (-W * 0.22, 0.0), Cr), (Bu, (W / 2 - W * 0.14, ch), (W * 0.25, 0.0), Cr)
+
+    W = 38.0
+    for _ in range(60):
+        fcap, bcap = caps(W, CH)
+        W += arm_f + arm_b + c["ease"] - (blen(fcap) + blen(bcap))
+    CH -= lower
+    fcap, bcap = caps(W, CH)
+    return {"W": W, "CH": CH, "fcap": fcap, "bcap": bcap}
+
+
+def one_piece_sleeve(arm_f, arm_b, depth, c):
+    """Set-in one-piece sleeve (kb set-in-sleeve): the cap curves are matched to the armhole chains at the seams."""
+    g = sleeve_base(arm_f, arm_b, depth, c)
+    fcap, bcap, Ls, WW = g["fcap"], g["bcap"], c["length"], c["hem"]
+
+    def piece(lining=False):
+        hem = Ls - 1.5 if lining else Ls
+        pc = mk("Sleeve lining" if lining else "Sleeve",
+                [("crown", (0.0, 0.0), (bcap[2], bcap[1])), ("back_underarm", bcap[0], None),
+                 ("back_wrist", (WW / 2, hem), None), ("front_wrist", (-WW / 2, hem), None),
+                 ("front_underarm", fcap[0], (fcap[1], fcap[2]))], grain=[[0.0, g["CH"] + 4], [0.0, Ls - 14]])
+        notch(pc, "crown")
+        return pc
+    return {"piece": piece, "W": g["W"], "CH": g["CH"]}
+
+
+def _bow_controls(p0, p3, off, towards):
+    """Controls of a curve from p0 to p3 bowed by `off` at its middle, on the side of point `towards`."""
+    d = sub(p3, p0)
+    n = unit(perp_r(d))
+    if (n[0] * (towards[0] - p0[0]) + n[1] * (towards[1] - p0[1])) < 0:
+        n = (-n[0], -n[1])
+    return add(add(p0, d, 1 / 3), n, off * 1.33), add(add(p0, d, 2 / 3), n, off * 1.33)
+
+
+def raglan(T, B, pcs, c, depth, arm_f, arm_b):
+    """Classic one-piece raglan with a shoulder dart (sheet sleeves-collars 1.5, kb raglan-from-set-in): the raglan
+    line is drawn on the front and the back, the shoulder pieces are cut away and laid on a one-piece sleeve whose
+    cap is lowered by `cap_lower`, the gap at the shoulder tip becomes the sleeve-top dart. Seams one edge to one
+    edge: raglan lines (equal by construction), the `arm` cm of armhole left under the raglan line, the dart legs."""
+    rn, ra, bow, d_w = c["neck"], c["arm"], c["bow"], c["dart"]
+    g = sleeve_base(arm_f, arm_b, depth, c, lower=c["cap_lower"])
+    fcap, bcap, Ls, WW = g["fcap"], g["bcap"], c["length"], c["hem"]
+    f_lo, _ = split(*fcap, t_len(fcap, ra))
+    b_lo, _ = split(*bcap, t_len(bcap, ra))
+    cut = {}
+    for panel, low, x_neck, mirror in ((B["front_panel"], f_lo[3], -d_w / 2, False),
+                                       (B["back_panel"], b_lo[3], d_w / 2, True)):
+        pc = pcs[panel]
+        split_on(pc, "center_neck", "neck", edge_len(pc, "center_neck", "neck") - rn, "raglan_neck")
+        split_on(pc, "across", "underarm", edge_len(pc, "across", "underarm") - ra, "raglan_arm")
+        nodes = {n["name"]: copy.deepcopy(n) for n in pc["outline"] if n.get("name")}
+        away = [nodes[k] for k in ("raglan_neck", "neck", "shoulder", "across", "raglan_arm")]
+        RA, SH = tuple(nodes["raglan_arm"]["p"]), tuple(nodes["shoulder"]["p"])
+        RN = tuple(nodes["raglan_neck"]["p"])
+        # the panel keeps the raglan line in place of neck, shoulder and across
+        pc["outline"] = [n for n in pc["outline"] if n.get("name") not in ("neck", "shoulder", "across")]
+        rn_node = pc["outline"][idx(pc, "raglan_neck")]
+        mid = lerp(RN, RA, 0.5)
+        inward = add(mid, sub(mid, SH))               # the raglan line is slightly concave on the body
+        rn_node["c"] = [list(q) for q in _bow_controls(RN, RA, bow, inward)]
+        rn_node.pop("dart", None)
+        notch(pc, "raglan_neck", 0.0)
+        # the cut-away turns about raglan_arm, set on the lowered cap, until its neck point sits half a dart
+        # width from the sleeve axis, at the top: the two shoulder lines then meet as the sleeve-top dart
+        NP = tuple(nodes["neck"]["p"])
+        vn = sub(NP, RA)
+        if mirror:
+            vn = (-vn[0], vn[1])
+
+        def at(a, v=vn):
+            return add(low, rot(v, a))
+        cands = []
+        prev = at(0.0)[0] - x_neck
+        for k in range(1, 721):
+            a = k * math.pi / 360
+            cur = at(a)[0] - x_neck
+            if (cur < 0) != (prev < 0):
+                lo_, hi_ = a - math.pi / 360, a
+                for _ in range(40):
+                    m_ = (lo_ + hi_) / 2
+                    if ((at(m_)[0] - x_neck) < 0) == (prev < 0):
+                        lo_ = m_
+                    else:
+                        hi_ = m_
+                cands.append((at((lo_ + hi_) / 2)[1], (lo_ + hi_) / 2))
+            prev = cur
+        ang = min(cands)[1]                        # the branch with the neck point highest
+
+        def tf(p, RA=RA, low=low, ang=ang, mirror=mirror):   # bound now: the loop variables change
+            q = (-(p[0] - RA[0]) if mirror else p[0] - RA[0], p[1] - RA[1])
+            return add(low, rot(q, ang))
+        cut[panel] = {"away": away, "tf": tf, "RN": RN, "RA": RA, "SH": SH, "low": low, "inward": inward,
+                      "rag_c": [tuple(q) for q in rn_node["c"]]}
+
+    F, Bk = cut[B["front_panel"]], cut[B["back_panel"]]
+    tfF, tfB = F["tf"], Bk["tf"]
+    rag_f = [list(tfF(q)) for q in F["rag_c"]]
+    rag_b = [list(tfB(q)) for q in Bk["rag_c"]]
+    neck_c_f = [list(tfF(tuple(q))) for q in F["away"][0]["c"]]           # raglan_neck -> neck, as drawn
+    neck_c_b = [list(tfB(tuple(q))) for q in Bk["away"][0]["c"]]
+    SHf, SHb = tfF(F["SH"]), tfB(Bk["SH"])
+    tip = lerp(SHf, SHb, 0.5)                          # the shoulder tips meet: tip of the sleeve-top dart
+    Nf, Nb = tfF(tuple(F["away"][1]["p"])), tfB(tuple(Bk["away"][1]["p"]))
+
+    def piece(lining=False):
+        hem = Ls - 1.5 if lining else Ls
+        nodes = [("front_wrist", (-WW / 2, hem), None), ("front_underarm", fcap[0], (f_lo[1], f_lo[2])),
+                 ("cap_front_low", F["low"], (rag_f[1], rag_f[0])), ("raglan_front_neck", tfF(F["RN"]), neck_c_f),
+                 ("neck_front", Nf, None), ("shoulder", tip, None),
+                 ("neck_back", Nb, (neck_c_b[1], neck_c_b[0])),
+                 ("raglan_back_neck", tfB(Bk["RN"]), rag_b), ("cap_back_low", Bk["low"], (b_lo[2], b_lo[1])),
+                 ("back_underarm", bcap[0], None), ("back_wrist", (WW / 2, hem), None)]
+        pc = mk("Sleeve lining" if lining else "Sleeve", nodes, grain=[[0.0, g["CH"] + 4], [0.0, Ls - 14]])
+        pc["outline"][idx(pc, "shoulder")]["dart"] = True   # legs = the two shoulder lines, open at the neck
+        for nm in ("raglan_front_neck", "raglan_back_neck", "cap_front_low", "cap_back_low"):
+            notch(pc, nm)
+        return pc
+    return {"piece": piece, "W": g["W"], "CH": g["CH"], "cut": cut, "dart_width": dist(Nf, Nb), "tip_gap": dist(SHf, SHb),
+            "tip_below_top": tip[1]}
+
+
+def kimono(T, B, pcs, c, hem_allowance):
+    """Kimono sleeve cut in one with the front and the back (sheet sleeves-collars 1.6, kb kimono-from-block-gusset):
+    shoulder tip lowered 1 cm, sleeve top `slope` degrees below horizontal, hem `hem` wide, underarm line from the
+    hem to the side seam lowered by `underarm_drop`; either a diamond gusset of side `gusset` set in a slash along
+    the underarm line (opened by a 1 mm slit for CLO3D) or the corner rounded with `radius`. A dolman is a kimono
+    with slope 40, underarm_drop 15 to 25 and no gusset."""
+    sl = math.radians(c["slope"])
+    d = (math.cos(sl), math.sin(sl))
+    gus = c["gusset"]
+    out = {"gusset": None, "dart_removed": False}
+    front_sh = None
+    for panel in (B["front_panel"], B["back_panel"]):
+        pc = pcs[panel]
+        SH = nodep(pc, "shoulder")
+        N = nodep(pc, "neck")
+        SH = (SH[0], SH[1] + 1.0)
+        if front_sh is None:
+            front_sh = dist(N, SH)
+        else:                                          # back shoulder = front shoulder + the block's shoulder ease
+            SH = add(N, unit(sub(SH, N)), front_sh + T["sh_ease"])
+        Ls = c["length"] - dist(N, SH)
+        wt = add(SH, d, Ls)
+        wu = add(wt, perp_r((-d[0], -d[1])), c["hem"] / 2)
+        UA = nodep(pc, "underarm")
+        J = (UA[0], UA[1] + c["underarm_drop"])
+        names = [n.get("name") for n in pc["outline"]]
+        if "side_dart_1" in names and J[1] >= nodep(pc, "side_dart_1")[1] - 1.0:
+            after = names[idx(pc, "side_dart_2") + 1]        # the dart is swallowed by the deep underarm
+            pc["outline"] = [n for n in pc["outline"] if n.get("name") not in ("side_dart_1", "side_dart", "side_dart_2")]
+            B["side"] = ([(panel, "underarm", after)] + [e for e in B["side"][0] if e[1] not in ("underarm", "side_dart_2")],
+                         B["side"][1])
+            B["darts"] = [d_ for d_ in B["darts"] if d_[0] != panel]
+            out["dart_removed"] = True
+        i_ua = idx(pc, "underarm")
+        nxt = tuple(pc["outline"][(i_ua + 1) % len(pc["outline"])]["p"])
+        u_in = unit(sub(J, wu))                       # along the underarm line, into the body
+        new = [{"name": "shoulder", "p": list(SH)}, {"name": "wrist_top", "p": [round(wt[0], 4), round(wt[1], 4)]},
+               {"name": "wrist_under", "p": [round(wu[0], 4), round(wu[1], 4)]}]
+        if gus:                                        # slash as a 1 mm slit: two parallel edges, as the glove slits
+            pr = (-u_in[1], u_in[0])                   # right of travel: the fabric side (the sleeve is above the line)
+            tip = add(J, u_in, gus)
+            new += [{"name": "slash_mouth", "p": list(add(J, pr, 0.1))}, {"name": "slash_in", "p": list(add(tip, pr, 0.05))},
+                    {"name": "slash_in_b", "p": list(add(tip, pr, -0.05))}, {"name": "underarm", "p": list(J)}]
+        else:
+            r = c["radius"]
+            a = add(J, u_in, -r)
+            new += [{"name": "arm_curve", "p": list(a), "c": [list(J), list(J)]},
+                    {"name": "underarm", "p": list(add(J, unit(sub(nxt, J)), r))}]
+        i_sh, i_ua = idx(pc, "shoulder"), idx(pc, "underarm")
+        pc["outline"] = pc["outline"][:i_sh] + new + pc["outline"][i_ua + 1:]
+        allow(pc, ["wrist_top"], hem_allowance)
+        notch(pc, "wrist_under" if not gus else "slash_mouth", 0.0)
+        out[panel] = {"width_at_body": 2 * abs((J[0] - SH[0]) * d[1] - (J[1] - SH[1]) * d[0]), "Ls": Ls}
+    if gus:
+        h = gus / math.sqrt(2)
+        out["gusset"] = mk("Gusset", [("tip_front", (0.0, 0.0), None), ("side_seam", (h, h), None),
+                                      ("tip_back", (0.0, 2 * h), None), ("underarm_seam", (-h, h), None)],
+                           grain=[[0.0, 0.5 * h], [0.0, 1.5 * h]], cut="1 pair, bias")
+    return out
+
+
+# ------------------------------------------------------------------ shirt, convertible collars and hoods
+
+
+def _arc_cubic(center, R, a0, a1):
+    """One cubic approximating the arc of radius R about `center` from angle a0 to a1 (0 = straight down... here
+    angles are measured from the vertical through the centre, towards +x), as (p0, c1, c2, p3)."""
+    k = 4.0 / 3.0 * math.tan((a1 - a0) / 4)
+    on = lambda a: (center[0] + R * math.sin(a), center[1] + R * math.cos(a))
+    tan_ = lambda a: (math.cos(a), -math.sin(a))
+    p0, p3 = on(a0), on(a1)
+    return p0, add(p0, tan_(a0), R * k), add(p3, tan_(a1), -R * k), p3
+
+
+def fall_piece(name, L, spring, H, point, lean, toc=0.0):
+    """Collar fall (or a one-piece convertible collar): neck edge of length L rising by `spring` at the front, centre
+    back height H, collar point `point` long leaning `lean` degrees forward, outer edge a smooth curve."""
+    xf = L
+    for _ in range(40):
+        cv = ((0.0, 0.0), (xf / 3, 0.0), (2 * xf / 3, -spring * 0.6), (xf, -spring))
+        xf += L - blen(cv)
+    fn = (xf, -spring)
+    la = math.radians(lean)
+    tip = add(fn, (math.sin(la), -math.cos(la)), point + toc)
+    cb_top = (0.0, -(H + toc))
+    aim = (xf * 0.5, -(H + toc) - 0.3)
+    outer = (add(tip, unit(sub(aim, tip)), dist(tip, cb_top) / 3), add(cb_top, (1.0, 0.0), dist(tip, cb_top) / 3))
+    return mk(name, [("cb_neck", (0.0, 0.0), (cv[1], cv[2])), ("front_neck", fn, None), ("point", tip, outer),
+                     ("cb_top", cb_top, None)], grain=[[2.0, -H * 0.3], [2.0, -H * 0.8]])
+
+
+def shirt_collar(T, c, ext):
+    """Shirt collar with a separate stand (sheet sleeves-collars 2.3, kb mens-shirt-collar-stand): stand as a band
+    curving up `rise` at the front (neck edge = neckline + extension), fall whose neck edge equals the stand's top
+    edge minus `fall_short`, spring, points."""
+    BN = blen((T["CBN"], *T["neck_b"], T["Nb"]))
+    FN = blen((T["CFN"], *T["neck_f"], T["N"]))
+    LN = BN + FN + ext
+    lo, hi = LN, 5000.0
+    for _ in range(80):                       # R(1 - cos(LN / R)) = rise
+        R = (lo + hi) / 2
+        lo, hi = (R, hi) if R * (1 - math.cos(LN / R)) > c["rise"] else (lo, R)
+    R = (lo + hi) / 2
+    phi = LN / R
+    h = c["h_cb"]
+    C = (0.0, h - R)
+    neck = _arc_cubic(C, R, 0.0, phi)
+    top_end = add(neck[3], (-math.sin(phi), -math.cos(phi)), c["h_cf"])
+    t = (math.cos(phi), -math.sin(phi))
+    top_len = dist((0.0, 0.0), top_end)
+    top_c = (add(top_end, t, -top_len / 3), add((0.0, 0.0), (1.0, 0.0), top_len / 3))
+    end_c = (add(neck[3], t, 1.2), add(top_end, t, 1.2))
+
+    def stand(name, toc=0.0):
+        return mk(name, [("cb_neck", neck[0], (neck[1], neck[2])), ("front_neck", neck[3], end_c),
+                         ("front_top", top_end, top_c), ("cb_top", (0.0, 0.0), None)],
+                  grain=[[2.0, h * 0.3], [2.0, h * 0.8]])
+    stand_top = blen(((0.0, 0.0), top_c[1], top_c[0], top_end))
+    L_fall = stand_top - c["fall_short"]
+
+    def collar(name, toc=0.0):
+        return fall_piece(name, L_fall, c["spring"], c["fall_cb"], c["point"], c["lean"], toc)
+
+    def cf_nodes(toc=0.0):
+        return [("front_neck", (-ext, T["CFN"][1]), None), ("center_neck", T["CFN"], T["neck_f"])]
+    return {"cf_nodes": cf_nodes, "collar": collar, "stand": stand, "top_y": T["CFN"][1], "top_node": "front_neck",
+            "BN": BN, "FN": FN, "LN": LN, "L_fall": L_fall, "stand_top": stand_top}
+
+
+def convertible_collar(T, c, ext):
+    """One-piece convertible (camp) collar (sheet 2.4): neck edge = neckline + extension, spring, built-in stand."""
+    BN = blen((T["CBN"], *T["neck_b"], T["Nb"]))
+    FN = blen((T["CFN"], *T["neck_f"], T["N"]))
+    LN = BN + FN + ext
+
+    def collar(name, toc=0.0):
+        return fall_piece(name, LN, c["spring"], c["h_cb"], c["point"], c["lean"], toc)
+
+    def cf_nodes(toc=0.0):
+        return [("front_neck", (-ext, T["CFN"][1]), None), ("center_neck", T["CFN"], T["neck_f"])]
+    return {"cf_nodes": cf_nodes, "collar": collar, "top_y": T["CFN"][1], "top_node": "front_neck", "LN": LN}
+
+
+def hood(T, c, ext):
+    """Two-piece hood (sheet 2.10, kb hood-two-piece): neck edge = neckline to the front edge, depth at least that
+    long, height, top back corner rounded; the two halves are sewn from the neck up the back and over the top."""
+    BN = blen((T["CBN"], *T["neck_b"], T["Nb"]))
+    FN = blen((T["CFN"], *T["neck_f"], T["N"]))
+    LN = BN + FN + ext
+    H, rad = c["height"], c["radius"]
+    Wd = max(c["depth"], LN + 1.0)             # the face edge leans forward from the neck to the depth at head level
+    k = 0.552
+
+    def piece(name, toc=0.0):
+        return mk(name, [("cb_neck", (0.0, 0.0), None), ("face_neck", (LN, 0.0), None),
+                         ("face_top", (Wd, -H), None), ("top_back", (rad, -H), ((rad * (1 - k), -H), (0.0, -H + rad * (1 - k)))),
+                         ("cb_round", (0.0, -H + rad), None)], grain=[[Wd / 2, -H + 6], [Wd / 2, -6.0]])
+
+    def cf_nodes(toc=0.0):
+        return [("front_neck", (-ext, T["CFN"][1]), None), ("center_neck", T["CFN"], T["neck_f"])]
+    return {"cf_nodes": cf_nodes, "collar": piece, "hood": True, "top_y": T["CFN"][1], "top_node": "front_neck",
+            "LN": LN, "depth": Wd}
+
+
+# ------------------------------------------------------------------ welt and jetted pockets
+
+
+def pocket_welt(front, T, pk, allowance):
+    """Breast or hip welt (kb welt-pocket): opening line on the front, welt cut folded at twice its depth, shell facing
+    and pocketing bags. For CLO3D the finished welt is a strip sewn along its lower edge onto the opening line."""
+    L, dep, tilt = pk.get("length", 10.5), pk.get("depth", 1.8), pk.get("tilt", 1.5)
+    chest = pk.get("where", "chest") == "chest"
+    x0 = pk.get("x", 5.0 if chest else 4.0)
+    y0 = (T["BP"][1] - pk.get("y", 2.0)) if chest else (T["YW"] + pk.get("y", 3.0))
+    a, b = (x0, y0), (x0 + L, y0 - tilt)
+    front["lines"] = front.get("lines", []) + [[list(a), list(b)]]
+    bag = pk.get("bag", 13.0 if chest else 18.0)
+    cut = [mk("Welt", [("w_top0", (0.0, 0.0), None), ("w_top1", (L, 0.0), None), ("w1", (L, 2 * dep), None),
+                       ("w0", (0.0, 2 * dep), None)], grain=[[1.0, dep], [L - 1.0, dep]], cut="1 pair, folded at mid-depth",
+              lines=[[[0.0, dep], [L, dep]]], allowance=allowance),
+           mk("Pocket facing", [("a", (0.0, 0.0), None), ("b", (L + 2, 0.0), None), ("c", (L + 2, bag), None), ("d", (0.0, bag), None)],
+              grain=[[1.0, 2.0], [1.0, bag - 2]], cut="1 pair, shell", allowance=allowance),
+           mk("Pocket bag", [("a", (0.0, 0.0), None), ("b", (L + 2, 0.0), None), ("c", (L + 2, bag), None), ("d", (0.0, bag), None)],
+              grain=[[1.0, 2.0], [1.0, bag - 2]], cut="1 pair, pocketing", allowance=allowance)]
+    shell = mk("Welt", [("w_top0", (0.0, 0.0), None), ("w_top1", (L, 0.0), None), ("w1", (L, dep), None), ("w0", (0.0, dep), None)],
+               mirror=True, fabric="shell")
+    hold = {"top": "Welt", "under": front["name"], "edge": ["w0", "w1"], "at": {"w0": list(a), "w1": list(b)}}
+    return cut, shell, hold
+
+
+def pocket_jetted(front, T, pk, allowance):
+    """Jetted (double welt) pocket (kb jetted-pocket): opening line and jet lines on the front, two jet strips, shell
+    facing and pocketing bags. In 3D the lines are drawn; the jets are decorative."""
+    L, jet = pk.get("length", 15.5), pk.get("jet", 0.55)
+    x0, y0 = pk.get("x", 4.0), T["YW"] + pk.get("y", 3.0)
+    front["lines"] = front.get("lines", []) + [[[x0, y0], [x0 + L, y0]], [[x0, y0 - jet], [x0 + L, y0 - jet]],
+                                               [[x0, y0 + jet], [x0 + L, y0 + jet]]]
+    bag = pk.get("bag", 20.0)
+    rect = lambda name, w, h, cut_: mk(name, [("a", (0.0, 0.0), None), ("b", (w, 0.0), None), ("c", (w, h), None), ("d", (0.0, h), None)],
+                                       grain=[[1.0, 1.0], [1.0, h - 1.0]], cut=cut_, allowance=allowance)
+    return [rect("Jet", L + 3, 3.0, "2 pairs, folded"), rect("Pocket facing", L + 2, bag, "1 pair, shell"),
+            rect("Pocket bag", L + 2, bag, "1 pair, pocketing")]
+
+
 # ------------------------------------------------------------------ chains: seams one edge to one edge
 
 
@@ -766,14 +1093,16 @@ class Seams:
 
 def run(spec, base_dir="."):
     S = merged(spec)
+    library.use_table(S.get("table"))
+    library.use_avatar(S.get("avatar"))
     body = S["body"]
     own = {}
     if S["measurements"]:
         with open(os.path.join(base_dir, S["measurements"]), encoding="utf-8") as f:
             own = json.load(f)
         body = own.pop("body", body)
-    ease = {**P.EASE[body], **own.pop("ease", {})}
-    size = str(S["size"] or P.BASE[body]["ref"])
+    ease = {**P.standard_ease(body), **own.pop("ease", {})}
+    size = str(S["size"] or library.reference_size(body))
     m = P.complete({**P.standard_measurements(body, size), **own}, body)
     T = torso(m, ease, body, S["fit"])
     shoulders(T, S["shoulder"]["extend"], S["shoulder"]["pad"])
@@ -783,8 +1112,16 @@ def run(spec, base_dir="."):
         S["front"]["hold_to"] = max(S["front"]["buttons"]) + 2.0
     ctype = S["collar"]["type"]
     K = (notched_collar(T, S["collar"], ext) if ctype == "notched" else
-         stand_collar(T, S["collar"], ext) if ctype in ("stand", "funnel") else no_collar(T, ext))
+         stand_collar(T, S["collar"], ext) if ctype in ("stand", "funnel") else
+         shirt_collar(T, S["collar"], ext) if ctype == "shirt" else
+         convertible_collar(T, S["collar"], ext) if ctype == "convertible" else
+         hood(T, S["collar"], ext) if ctype == "hood" else no_collar(T, ext))
     B = {"darts": body_darts, "boxy": body_boxy, "princess": body_princess}[S["shaping"]](T, S, m, K)
+    stype = S["sleeve"]["type"]
+    if stype in ("raglan", "kimono") and S["shaping"] == "princess":
+        raise SystemExit(f"{stype} sleeve: use the darts or boxy shaping (the armhole princess seam needs the armhole)")
+    if stype in ("raglan", "kimono") and S["lining"]:
+        raise SystemExit(f"{stype} sleeve: lining not drafted yet, set \"lining\": null")
     pcs = {p["name"]: p for p in B["pieces"]}
     front, back = pcs[B["front_panel"]], pcs[B["back_panel"]]
     checks = []
@@ -809,7 +1146,16 @@ def run(spec, base_dir="."):
 
     # collar
     cut = list(B["pieces"])
-    if K["collar"]:
+    if K.get("hood"):
+        hd = K["collar"]("Hood")
+        hd.update(cut="1 pair", allowance=S["allowance"])
+        cut.append(hd)
+        if S["lining"]:
+            hl = K["collar"]("Hood lining")
+            hl.update(cut="1 pair, lining", allowance=S["allowance"])
+            cut.append(hl)
+        info("hood depth (face edge to centre back)", K["depth"])
+    elif K["collar"]:
         toc = S["collar"].get("turn_of_cloth", 0.3)
         top_c = K["collar"]("Top collar", toc)
         top_c.update(cut="1 on fold", fold=[len(top_c["outline"]) - 1], allowance=S["allowance"])
@@ -818,15 +1164,21 @@ def run(spec, base_dir="."):
         if ctype != "notched":
             under_c["fold"] = [len(under_c["outline"]) - 1]
         cut += [top_c, under_c]
+        if K.get("stand"):
+            st = K["stand"]("Collar stand")
+            st.update(cut="2 on fold (outer and inner), interfaced", fold=[len(st["outline"]) - 1], allowance=S["allowance"])
+            cut.append(st)
+            info("collar stand top edge", K["stand_top"])
+            info("collar fall neck edge", K["L_fall"])
 
     # sleeve
-    sv = None
-    if S["sleeve"]["type"] == "two-piece":
-        ARM_F = sum(edge_len(pcs[n], a, b) for n, a, b in B["arm_f"])
-        ARM_B = sum(edge_len(pcs[n], a, b) for n, a, b in B["arm_b"])
-        depth = ((T["UA"][1] - T["SH"][1]) + (T["UAb"][1] - T["SHb"][1])) / 2
-        sc = dict(S["sleeve"])
-        sc["length"] = sc["length"] or m["arm_length"] - S["shoulder"]["extend"] + S["shoulder"]["pad"] / 2
+    sv = s1 = km = None
+    ARM_F = sum(edge_len(pcs[n], a, b) for n, a, b in B["arm_f"])
+    ARM_B = sum(edge_len(pcs[n], a, b) for n, a, b in B["arm_b"])
+    depth = ((T["UA"][1] - T["SH"][1]) + (T["UAb"][1] - T["SHb"][1])) / 2
+    sc = dict(S["sleeve"])
+    sc["length"] = sc["length"] or m["arm_length"] - S["shoulder"]["extend"] + S["shoulder"]["pad"] / 2
+    if stype == "two-piece":
         sv = two_piece_sleeve(ARM_F, ARM_B, depth, sc)
         ts, us_ = sv["top"](), sv["under"]()
         for p in (ts, us_):
@@ -837,12 +1189,46 @@ def run(spec, base_dir="."):
         info("bicep width", sv["W"])
         info("sleeve cap height", sv["CH"])
         info("sleeve length", sc["length"])
+    elif stype in ("one-piece", "raglan"):
+        if stype == "one-piece":
+            s1 = one_piece_sleeve(ARM_F, ARM_B, depth, sc)
+        else:
+            sc["ease"] = sc.get("raglan_ease", 0.5)      # a raglan is set almost flat
+            s1 = raglan(T, B, pcs, sc, depth, ARM_F, ARM_B)
+        sl = s1["piece"]()
+        sl.update(cut="1 pair", allowance=S["allowance"])
+        allow(sl, ["back_wrist"], S["hem_allowance"])
+        cut.append(sl)
+        info("bicep width", s1["W"])
+        info("sleeve cap height", s1["CH"])
+        info("sleeve length", sc["length"])
+        if stype == "raglan":
+            info("raglan: sleeve-top dart width at the neck", s1["dart_width"])
+            ck("raglan: shoulder tips meet at the dart point, gap (cm)", s1["tip_gap"], 0.0, 2.0)
+            info("raglan: dart point below the cap top (1.5 to 2.5 typical; adjust cap_lower)", s1["tip_below_top"])
+    elif stype == "kimono":
+        km = kimono(T, B, pcs, sc, S["hem_allowance"])
+        if km["gusset"]:
+            km["gusset"]["allowance"] = S["allowance"]
+            cut.append(km["gusset"])
+        info("kimono sleeve width at the body (front)", km[B["front_panel"]]["width_at_body"])
+        info("kimono sleeve length past the shoulder", km[B["front_panel"]]["Ls"])
+        if km["dart_removed"]:
+            info("kimono: the side bust dart is swallowed by the lowered underarm (removed)", 1)
+    elif stype != "none":
+        raise SystemExit(f"sleeve type {stype}: two-piece, one-piece, raglan, kimono or none")
 
     # facings
     ftype = S["facing"]["type"]
     if ftype == "auto":
         ftype = "panel" if S["shaping"] == "princess" else "width"
     Fs = add(T["N"], T["us"], 4.0)
+    rag_left = None
+    if stype == "raglan":                              # the facing follows the raglan line, the shoulder is gone
+        cf_ = s1["cut"][B["front_panel"]]
+        cv_ = (cf_["RN"], cf_["rag_c"][0], cf_["rag_c"][1], cf_["RA"])
+        rag_left, _ = split(*cv_, t_len(cv_, 4.0))
+        Fs = rag_left[3]
     xf = -ext + S["facing"]["width"]
     yhem_f = nodep(front, "hem_front")[1]
     y_low = min(yhem_f - 10.0, 45.0 if S["shaping"] == "princess" else 55.0)
@@ -853,7 +1239,8 @@ def run(spec, base_dir="."):
         facing.pop("buttons", None)
     else:
         toc = S["collar"].get("facing_turn", 0.0) if ctype == "notched" else 0.0
-        facing = mk("Front facing", [("neck", T["N"], None), ("facing_shoulder", Fs, fac_c), ("facing_low", (xf, y_low), None),
+        n_top = (rag_left[0], (rag_left[1], rag_left[2])) if rag_left else (T["N"], None)
+        facing = mk("Front facing", [("neck", n_top[0], n_top[1]), ("facing_shoulder", Fs, fac_c), ("facing_low", (xf, y_low), None),
                                      ("hem_in", (xf, yhem_f), None)] + front_edge(K, ext, yhem_f, None, toc),
                     within="Front")
         allow(facing, ["hem_in"], S["hem_allowance"])
@@ -873,7 +1260,27 @@ def run(spec, base_dir="."):
         ck("front facing shoulder = back neck facing shoulder", dist(T["N"], Fs), dist(T["Nb"], Fsb))
 
     # pockets
-    pk = S["pockets"]
+    welt_shell, welt_holds = [], []
+    for pk in S["pockets"] or []:
+        if pk["type"] == "welt":
+            wc, wsh, wh = pocket_welt(front, T, pk, S["allowance"])
+            if welt_shell:
+                wsh["name"] = wh["top"] = f"Welt {len(welt_shell) + 1}"
+                for c_ in wc:
+                    c_["name"] = f"{c_['name']} {len(welt_shell) + 1}"
+            cut += wc
+            welt_shell.append(wsh)
+            welt_holds.append(wh)
+        elif pk["type"] == "jetted":
+            cut += pocket_jetted(front, T, pk, S["allowance"])
+        elif pk["type"] not in ("patch", "in-seam"):
+            raise SystemExit(f"pocket type {pk['type']}: patch, in-seam, welt or jetted")
+    seen = {}
+    for p_ in cut:                                     # two pockets: "Pocket bag", "Pocket bag 2"
+        seen[p_["name"]] = seen.get(p_["name"], 0) + 1
+        if seen[p_["name"]] > 1:
+            p_["name"] = f"{p_['name']} {seen[p_['name']]}"
+    pk = next((p for p in (S["pockets"] or []) if p["type"] in ("patch", "in-seam")), None)
     if pk and pk["type"] == "patch":
         w, h, fy = pk.get("w", 17.0), pk.get("h", 19.0), pk.get("facing", 4.0)
         r, x0, y0 = 3.0, pk.get("x", 4.0), T["YW"] + pk.get("y", 3.0)
@@ -913,6 +1320,8 @@ def run(spec, base_dir="."):
             lining_pieces += derived_linings(front, back, T, Fs, fac_c, xf, y_low, up, pl, bnf, S["shaping"])
         if sv:
             lining_pieces += [sv["top"](True), sv["under"](True)]
+        elif s1:
+            lining_pieces.append(s1["piece"](True))
         for p in lining_pieces:
             p.update(cut=p.get("cut", "1 pair"), allowance=1.5 if S["shaping"] == "princess" else 1.0)
         info("lining hem above the finished hem", up)
@@ -920,14 +1329,32 @@ def run(spec, base_dir="."):
     # 3D shell: mirror halves, every seam, wrap holds
     shell3d = {p["name"]: copy.deepcopy(p) for p in B["pieces"]}
     if K["collar"]:
-        shell3d["Collar"] = K["collar"]("Collar", 0.0)
+        shell3d["Hood" if K.get("hood") else "Collar"] = K["collar"]("Hood" if K.get("hood") else "Collar", 0.0)
+    if K.get("stand"):
+        shell3d["Collar stand"] = K["stand"]("Collar stand", 0.0)
     if sv:
         shell3d["Top sleeve"], shell3d["Under sleeve"] = sv["top"](), sv["under"]()
-    for p in shell3d.values():
-        for k in ("buttons", "lines", "darts_in", "fold", "allowances", "notches"):
+    if s1:
+        shell3d["Sleeve"] = s1["piece"]()
+    if km and km["gusset"]:
+        shell3d["Gusset"] = copy.deepcopy(km["gusset"])
+    for w in welt_shell:
+        shell3d[w["name"]] = w
+    for nm, p in shell3d.items():
+        for k in ("buttons", "darts_in", "fold", "allowances", "notches"):
             p.pop(k, None)
         p["mirror"] = True
-    wearer = {nm: "right" if nm in ("Back", "Side back", "Collar") else "left" for nm in shell3d}
+        p["fabric"] = "shell"                       # read by build_garment: --fabrics shell=<index or name>
+        if nm in P.WEARER_RIGHT:
+            p["wearer"] = "right"                   # the original half is the wearer's right: {side} follows
+        if P.arrange_for(nm):
+            p["arrange"] = P.arrange_for(nm)
+    if "Side back" in shell3d and P.arrange_for("Back with side panels"):   # princess: the side backs take the back points
+        shell3d["Back"]["arrange"] = P.arrange_for("Back with side panels")
+    for w in welt_shell:                            # a welt sits on its front, a little off the body
+        if P.arrange_for(B["front_panel"]):
+            shell3d[w["name"]]["arrange"] = dict(P.arrange_for(B["front_panel"]), x=50, y=50, offset=40)
+    wearer = {nm: "right" if nm in ("Back", "Side back", "Collar", "Collar stand", "Hood") else "left" for nm in shell3d}
     sm = Seams(shell3d)
     sf, sb = B["side"]
     sm.match(sf, sb, why="side seam")
@@ -935,7 +1362,31 @@ def run(spec, base_dir="."):
         sm.match(A_, B_, why="princess seam")
     for nm, l1, ap, l2 in B["darts"]:
         sm.match([(nm, l1, ap)], [(nm, l2, ap)], why="dart legs, trued")
-    sm.match([(B["back_panel"], "neck", "shoulder")], [(B["front_panel"], "neck", "shoulder")], why="back shoulder ease")
+    FP, BP_ = B["front_panel"], B["back_panel"]
+    if stype != "raglan":
+        sm.match([(BP_, "neck", "shoulder")], [(FP, "neck", "shoulder")], why="back shoulder ease")
+    if stype == "kimono":
+        sm.match([(BP_, "shoulder", "wrist_top")], [(FP, "shoulder", "wrist_top")], why="kimono sleeve top seam")
+        if km["gusset"]:
+            sm.match([(FP, "wrist_under", "slash_mouth")], [(BP_, "wrist_under", "slash_mouth")], why="kimono underarm seam")
+            sm.match([(FP, "slash_in_b", "underarm")], [("Gusset", "tip_front", "side_seam")], why="gusset, front slash")
+            sm.match([(BP_, "underarm", "slash_in_b")], [("Gusset", "side_seam", "tip_back")], why="gusset, back slash")
+            sm.match([(BP_, "slash_in", "slash_mouth")], [("Gusset", "tip_back", "underarm_seam")], why="gusset, back slash")
+            sm.match([(FP, "slash_mouth", "slash_in")], [("Gusset", "underarm_seam", "tip_front")], why="gusset, front slash")
+        else:
+            sm.match([(FP, "wrist_under", "arm_curve"), (FP, "arm_curve", "underarm")],
+                     [(BP_, "wrist_under", "arm_curve"), (BP_, "arm_curve", "underarm")], why="kimono underarm seam")
+    if stype == "raglan":
+        sm.match([("Sleeve", "cap_front_low", "raglan_front_neck")], [(FP, "raglan_arm", "raglan_neck")], why="front raglan seam")
+        sm.match([("Sleeve", "cap_front_low", "front_underarm")], [(FP, "raglan_arm", "underarm")], why="armhole under the raglan, front")
+        sm.match([("Sleeve", "cap_back_low", "raglan_back_neck")], [(BP_, "raglan_arm", "raglan_neck")], why="back raglan seam")
+        sm.match([("Sleeve", "cap_back_low", "back_underarm")], [(BP_, "raglan_arm", "underarm")], why="armhole under the raglan, back")
+        sm.match([("Sleeve", "neck_front", "shoulder")], [("Sleeve", "neck_back", "shoulder")], why="sleeve-top dart: shoulder lines, back ease")
+    if s1:
+        sm.match([("Sleeve", "back_underarm", "back_wrist")], [("Sleeve", "front_underarm", "front_wrist")], why="sleeve underarm seam")
+    if stype == "one-piece":
+        sm.match([("Sleeve", "front_underarm", "crown")], B["arm_f"], why="sleeve cap ease, front")
+        sm.match([("Sleeve", "back_underarm", "crown")], B["arm_b"], why="sleeve cap ease, back")
     cb_chain, nb = [], back["outline"]
     i = idx(shell3d["Back"], "hem_cb")
     names = [n["name"] for n in shell3d["Back"]["outline"]]
@@ -945,15 +1396,29 @@ def run(spec, base_dir="."):
         j = (j + 1) % len(names)
     sm.match(cb_chain, cb_chain, why="centre back", sides="LR")
     if K["collar"]:
+        cname = "Hood" if K.get("hood") else "Collar stand" if K.get("stand") else "Collar"
         if ctype == "notched":
             col_chain = [("Collar", "cb_neck", "neck"), ("Collar", "neck", "gorge_neck"), ("Collar", "gorge_neck", "notch")]
             neck_chain = [("Back", "center_neck", "neck"), ("Front", "neck", "gorge_neck"), ("Front", "gorge_neck", "gorge_roll"),
                           ("Front", "gorge_roll", "notch")]
         else:
-            col_chain = [("Collar", "cb_neck", "front_neck")]
-            neck_chain = [("Back", "center_neck", "neck"), ("Front", "neck", "center_neck"), ("Front", "center_neck", "front_neck")]
+            col_chain = [(cname, "cb_neck", "face_neck" if K.get("hood") else "front_neck")]
+            if stype == "raglan":               # the sleeve carries the neckline between the raglan lines
+                neck_chain = [("Back", "center_neck", "raglan_neck"), ("Sleeve", "raglan_back_neck", "neck_back"),
+                              ("Sleeve", "neck_front", "raglan_front_neck"), ("Front", "raglan_neck", "center_neck"),
+                              ("Front", "center_neck", "front_neck")]
+            else:
+                neck_chain = [("Back", "center_neck", "neck"), ("Front", "neck", "center_neck"), ("Front", "center_neck", "front_neck")]
         sm.match(col_chain, neck_chain, why="collar on neckline")
-        sm.match([("Collar", "cb_top", "cb_neck")], [("Collar", "cb_top", "cb_neck")], why="collar centre back", sides="LR")
+        if K.get("hood"):
+            top = [("Hood", "cb_neck", "cb_round"), ("Hood", "cb_round", "top_back"), ("Hood", "top_back", "face_top")]
+            sm.match(top, top, why="hood centre back and top", sides="LR")
+        else:
+            sm.match([(cname, "cb_top", "cb_neck")], [(cname, "cb_top", "cb_neck")], why="collar centre back", sides="LR")
+        if K.get("stand"):
+            split_on(shell3d["Collar stand"], "cb_top", "front_top", K["L_fall"], "fall_end")
+            sm.match([("Collar", "cb_neck", "front_neck")], [("Collar stand", "cb_top", "fall_end")], why="fall on the stand")
+            sm.match([("Collar", "cb_top", "cb_neck")], [("Collar", "cb_top", "cb_neck")], why="collar centre back", sides="LR")
     if sv:
         sm.match([("Under sleeve", "underarm", "front_seam_cap"), ("Top sleeve", "front_seam_cap", "crown")], B["arm_f"],
                  knots=[(sv["f_lo"], sv["f_lo"])], why="sleeve cap ease, front")
@@ -980,7 +1445,11 @@ def run(spec, base_dir="."):
         fp = B["front_panel"]
         holds.append({"top": f"{fp} R", "edge": ["hold_end", K["top_node"]], "under": f"{fp} L", "layer": 1,
                       "at": {K["top_node"]: [ext, y_top], "hold_end": [ext, hold_to]}})
-    if K["collar"] and ctype != "notched" and ext > 0:
+    for wh in welt_holds:                             # the welt's lower edge on the opening line of each front
+        for side_ in ("L", "R"):
+            at = {k: [v[0] if side_ == "L" else -v[0], v[1]] for k, v in wh["at"].items()}
+            holds.append({"top": f"{wh['top']} {side_}", "under": f"{wh['under']} {side_}", "edge": wh["edge"], "at": at})
+    if K["collar"] and ctype != "notched" and ext > 0 and "overlap_line" in K:
         ol = K["overlap_line"]()
         holds.append({"top": "Collar L", "edge": ["front_neck", "front_top"], "under": "Collar R", "layer": 1,
                       "at": {k: [-v[0], v[1]] for k, v in ol.items()}})
@@ -993,8 +1462,9 @@ def run(spec, base_dir="."):
                     + elen(pcs["Side back"], "hem_side", "hem_princess") + elen(pcs["Back"], "hem_princess", "hem_cb"))
         if S["length"]["hem"]:
             ck("hem circumference (full)", 2 * hem_half, S["length"]["hem"], 1.0)
-    ck("back shoulder - front shoulder (ease)", edge_len(back, "neck", "shoulder") - edge_len(front, "neck", "shoulder"),
-       T["sh_ease"])
+    if stype != "raglan":
+        ck("back shoulder - front shoulder (ease)", edge_len(back, "neck", "shoulder") - edge_len(front, "neck", "shoulder"),
+           T["sh_ease"])
     return {"spec": S, "size": size, "cut": cut, "lining": lining_pieces, "shell3d": list(shell3d.values()),
             "seams": seams, "holds": holds, "checks": checks}
 

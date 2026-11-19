@@ -1,0 +1,14 @@
+# Sources: sewing-materials
+
+Read in the repository (the cross-references of this file):
+- `../techniques/sewing-techniques.md` (ST): seams, hems, interfacing, closures, linings, pressing, industrial notes, sources. The allowances and iron temperatures quoted here come from it.
+- `../techniques/knits-lingerie-swimwear.md` (KL): stretch measurement and classes (section 1), band length ratios (3.1), swim ease (6.1), cited there to Chalk & Notch, Siemacht Sewing, Seamwork and the American Sewing Guild.
+- `outerwear-tailoring.md` in this folder: for the jacket construction (#blazer-womens, #suit-jacket-single-breasted).
+
+Checked on the web in this session:
+- ISO 4915 stitch classes: Kohl's ISO number sheet (https://link.kohls.com/content/dam/klink/ISO_Numbers.pdf, listed in search results; not fetched, access denied) and secondary copies of the American & Efird and Coats stitch guides (Scribd, SlideShare, via search results). Verified: 602 is a two-needle cover stitch with cover thread (4 threads); 605 is a three-needle cover stitch (5 threads); 607 is a four-needle flatlock (6 threads); 514 is a four-thread overedge, usually described with two needles (the Kohl's sheet lists one needle); 516 is a safety stitch (401 plus 504, 5 threads); 515 is the 4-thread version (401 plus 503). The 101, 301, 401, 504 descriptions are consistent with all of these sources but were not read in the standard.
+- ISO 4916 seam types: ISO and BSI catalogue pages (https://www.iso.org/standard/10934.html, https://knowledge.bsigroup.com/products/stitches-and-seams-classification-and-terminology-of-seam-types-1): the standard classifies seam types, is read with ISO 4915, and ISO 4916:1991 remains current (confirmed 2022). Class names (superimposed, lapped, bound, flat, ornamental, edge finishing) come from a Coats technical bulletin quoted by a search result (https://coats.com/tr/?p=13097); the letter suffixes were not verified.
+
+From reference books and trade practice (not re-checked online; figures summarised from the standard practice of these works and may differ by edition): Claire Shaeffer, "Couture Sewing Techniques" and "Fabric Sewing Guide"; Cabrera and Meyers, "Classic Tailoring Techniques"; Reader's Digest "Complete Guide to Sewing"; Cooklin, "Garment Technology for Fashion Designers"; Carr and Latham, "Technology of Clothing Manufacture"; Armstrong, "Patternmaking for Fashion Design".
+
+Lower-confidence items: pad-stitch row direction and spacing, roll line tape shortening, canvas and chest piece dimensions, sleeve head strip size, shrinkage percentages (all fibres), nap layout fabric increase, leather thickness values, fur ease, taped-seam and weld widths, bartack dimensions, glove seam allowances, the letter codes of ISO 4916 (not stated here), and all CLO3D remarks beyond the tools named.

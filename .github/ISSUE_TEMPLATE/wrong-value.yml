@@ -1,0 +1,40 @@
+name: A value or a shape is wrong
+description: Something the skill says does not match real pattern making. Two minutes, no code.
+labels: ["knowledge"]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The entry id, the data file, or the command and what it drew.
+      placeholder: "kb welt-pocket / data/constructions/shirt-collar.json / block sleeve --size 40"
+    validations:
+      required: true
+  - type: textarea
+    id: says
+    attributes:
+      label: What it says or draws
+    validations:
+      required: true
+  - type: textarea
+    id: should
+    attributes:
+      label: What it should be
+      description: The value, the proportion, the shape, in words and numbers. Please do not attach photos or scans of patterns.
+    validations:
+      required: true
+  - type: dropdown
+    id: basis
+    attributes:
+      label: How you know
+      options:
+        - "measured: my own pattern or garment"
+        - "published: a book, a standard or a published pattern (name it below)"
+        - "practice: how it is done in the trade"
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Book and page, pattern name, or "own pattern".

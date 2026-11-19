@@ -1,0 +1,22 @@
+# Sources: lingerie-swim-sleep-kids
+
+- FORMAT and method background: references/techniques/knits-lingerie-swimwear.md (sections 5.1 to 5.9, 6.1 to 6.6) and references/techniques/bodices-dresses-tops.md (7.1 to 7.3 corsets, 11.5 children).
+- Cloth Habit, three-piece bra cup variation (principle of the third cup piece), as cited in the existing bra entries.
+- FreeSewing, Cathrin underbust corset: https://freesewing.eu/docs/designs/cathrin (11-panel example, core and outer layers, required measurements, about 3 m lacing, size 2 grommets).
+- Sew Historically, Edwardian straight-front linen corset: https://www.sewhistorically.com/edwardian-straight-front-linen-corset/ (7 pieces per side, no gores, wide busk, front V metal bones, garters).
+- Farthingales Corset Making Supplies, Truly Victorian Edwardian corset pattern: https://www.farthingalescorsetmakingsupplies.com/blogs/tips-tricks/information-for-truly-victorians-edwardian-corset-pattern (hip gore pieces, 13 inch busks, 16 spring steel bones 8 mm of 32 to 36 cm, 30 grommets).
+- Past Patterns 0106, Straight-fronted corset: https://pastpatterns.com/pattern/straight-fronted-corset-pattern-and-kit/ (busk 11, 12 or 13 inch by size, 30 eyelets).
+- Fashion Through Her Story, Laced in, Victorian corset: https://fashionthroughherstory.com/2013/06/30/laced-in-victorian-corset/ (Waugh 1880s reproduction: 36 grommets, about 5 m lacing).
+- Amazon Dry Goods, 1880 late Victorian corset listing (6-panel 1886 reproduction with CF busk and CB lacing): https://www.amazondrygoods.com/products/1880-late-victorian-corset.html
+- Red Threaded, The rise of the S-bend corset: https://redthreaded.com/blogs/redthreaded/the-new-figure-or-the-rise-of-the-s-bend-corset (secondary account of the Edwardian silhouette).
+- Müller & Sohn, baby bodysuits with overlapping shoulder (size 74/50 block, armhole lowered 1 cm): https://www.muellerundsohn.com/en/wp-json/wp/v2/posts/54
+- Ikatee Malmo bodysuit pattern page (lapped shoulder and shoulder-opening versions, snap counts by size): https://ikatee.com/products/malmo-malaga-bodysuits-baby-1m-4y-pdf-sewing-pattern
+- ErgoPouch and Orchestra baby sleeping bag listings (lengths, TOG, bell-shaped bottom), Boppy TOG guide: https://www.boppy.com/blogs/boppy/the-ultimate-guide-to-sleep-sack-tog-ratings-wearable-blanket-sizing-selection-and-sweet-dreams
+- Sewguide, Triangle bikini top (free-size method): https://sewguide.com/sew-triangle-string-bikini-top ; D. McCunn, How to Make Custom-Fit Bras and Lingerie (bikini top measurement method, via search excerpt).
+- Bonnet tutorials (Make: Vintage linens bonnet, pioneer bonnet pattern pages): https://makezine.com/article/craft/yarncraft/post_2/
+- Ottobre Design, pattern adjustment guide (size steps of 6 cm, chest/waist/hip +2 to 3 cm per size): https://www.ottobredesign.com/wp/wp-content/uploads/pattern_adjustment_EN.pdf
+- Müller & Sohn, Enlarge a pattern for a jacket for kids / children's coat grading (increments by size): https://www.muellerundsohn.com/en/?p=3903
+- EN 14682 cords and drawstrings: secondary summaries (productip.com Dangerous drawstrings and cords; Irish CCPC consumer guidance); the standard text itself was not consulted.
+- EN 13402 size designation: https://www.apparelsearch.com/Definitions/Miscellaneous/EN_13402_European_Clothing_Size_Standard.htm ; study of childrenswear sizing intervals: https://ortus.rtu.lv/science/en/publications/6331
+- W. Aldrich, Metric Pattern Cutting for Children's Wear and Babywear; Metric Pattern Cutting for Women's Wear; Metric Pattern Cutting for Menswear (convention reference, not accessed online).
+- Not found online and so marked unverified: drawn graded patterns of cups, briefs, men's briefs, boxer shorts, boardshorts, swim briefs, burkinis, robes, sleepsuits, bibs, bonnets from head measurements.

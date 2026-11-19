@@ -1,0 +1,23 @@
+{
+  "id": "stand-collar",
+  "kind": "construction",
+  "applies_to": "collar.stand",
+  "default": true,
+  "title": "Stand collar (band); a funnel when its top edge is longer",
+  "unit": "cm (angles in degrees)",
+  "values": {"h_cb": 6.0, "h_cf": 5.5, "funnel": 0.0},
+  "doc": {
+    "h_cb": "height at the centre back",
+    "h_cf": "height at the front end",
+    "funnel": "top edge longer than the neck edge by this, whole collar (0: straight band)"
+  },
+  "provenance": {
+    "source": "references/techniques/sleeves-collars.md section 2.2",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-19",
+    "notes": "Values inside the ranges of the technique sheet; the outline they give was not compared to a published draft."
+  }
+}

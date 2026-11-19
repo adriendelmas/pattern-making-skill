@@ -1,0 +1,49 @@
+{
+  "id": "notched-collar",
+  "kind": "construction",
+  "applies_to": "collar.notched",
+  "default": true,
+  "title": "Notched lapel collar, single breasted, medium lapel",
+  "unit": "cm (angles in degrees)",
+  "values": {
+    "break": 22.0,
+    "stand": 2.5,
+    "lapel": 7.5,
+    "belly": 1.0,
+    "gorge_y": 7.0,
+    "gorge_angle": 90.0,
+    "notch_lapel": 3.5,
+    "notch_collar": 3.2,
+    "notch_angle": 75.0,
+    "collar_stand": 3.0,
+    "collar_fall": 4.0,
+    "spring": 3.0,
+    "turn_of_cloth": 0.3,
+    "facing_turn": 0.4
+  },
+  "doc": {
+    "break": "height of the break point (where the lapel starts to roll, at the top button) below the neck point level",
+    "stand": "the roll line starts this far past the neck point on the extended shoulder line (collar stand at the shoulder)",
+    "lapel": "lapel width, square to the roll line, from the roll line to the lapel point",
+    "belly": "bow of the lapel's outer edge at its middle",
+    "gorge_y": "height, below the neck point level, where the gorge line leaves the new neckline",
+    "gorge_angle": "angle between the gorge line and the roll line, degrees",
+    "notch_lapel": "length of the lapel side of the notch",
+    "notch_collar": "length of the collar side of the notch",
+    "notch_angle": "opening of the notch, degrees",
+    "collar_stand": "collar stand at the centre back",
+    "collar_fall": "collar fall at the centre back",
+    "spring": "how far the collar's neck edge swings off the roll line over the back neck length",
+    "turn_of_cloth": "top collar larger than the undercollar by this, outer edge and end",
+    "facing_turn": "lapel facing larger than the front at the lapel edge by this"
+  },
+  "provenance": {
+    "source": "references/techniques/sleeves-collars.md section 2.7; kb notched-lapel",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-19",
+    "notes": "Values inside the ranges of the technique sheet; the outline they give was not compared to a published draft."
+  }
+}

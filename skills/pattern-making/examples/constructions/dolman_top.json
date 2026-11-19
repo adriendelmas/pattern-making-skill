@@ -1,0 +1,28 @@
+{
+ "title": "Dolman top",
+ "shaping": "boxy",
+ "fit": {
+  "side_ease": 2.0
+ },
+ "length": {
+  "below_waist": 18
+ },
+ "front": {
+  "extension": 0.0
+ },
+ "collar": {
+  "type": "none"
+ },
+ "sleeve": {
+  "type": "kimono",
+  "length": 50,
+  "hem": 24,
+  "gusset": 0,
+  "slope": 40,
+  "underarm_drop": 15
+ },
+ "facing": {
+  "type": "width",
+  "width": 6
+ }
+}

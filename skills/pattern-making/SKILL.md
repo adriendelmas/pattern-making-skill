@@ -7,7 +7,8 @@ description: Pattern making, pattern design and sewing (garment drafting, flat p
 
 Universal pattern-making skill. It drafts like a professional pattern maker: from the construction of
 real garments and established methods, never from a silhouette alone. The knowledge is in `references/`,
-the calculations are done by `scripts/pattern.py` (Python 3.8 or newer, standard library only).
+the calculations are done by `scripts/pattern.py` (Python 3.9 or newer, standard library only), and the numbers
+it drafts with (size tables, construction values, digitised shapes) are data files in `data/`.
 
 ## Rules
 
@@ -29,6 +30,12 @@ the calculations are done by `scripts/pattern.py` (Python 3.8 or newer, standard
    complex to place automatically in CLO3D, hand it over to the person (`references/clo3d.md`).
 7. **Stay neutral on the method.** The engine's blocks are proportional and tied to no author. If the
    person follows a given method (Aldrich, Armstrong, Müller, Esmod, Bunka, other), use its values.
+8. **A real pattern is analysed by the skill, never by eye.** When the person gives a pattern (paper pieces, a
+   photo or a scan of them, a tracing, measured points) to draft from or to add to the library, run the intake
+   protocol (`references/pattern-intake.md`): digitise each piece, name the standard points, write the seams and
+   what every other edge is, then `python scripts/pattern.py analyze`, which measures every dimension, seam and
+   ease and lists what is missing. Answer both of its checklists line by line. Reference pictures are never copied
+   into the skill or a repository: only the data taken from them.
 
 ## Construction laws (checked by the engine on every export)
 
@@ -48,10 +55,11 @@ A pattern is finished when its report has no `!!` line and its seam table (`seam
 
 ## Whole garments from a spec
 
-Jackets and coats are drafted by `python scripts/pattern.py garment spec.json --out folder`
+Jackets, coats, shirts and tops are drafted by `python scripts/pattern.py garment spec.json --out folder`
 (`references/garment-spec.md`): reusable constructions on the bodice block (body ease, extended and padded
-shoulders, darts, boxy or armhole princess with flare, overlap or wrap, notched lapel drafted in place, stand or
-funnel collar, two-piece sleeve matched to the armhole, facings, lining, pockets). It writes the cut pieces and
+shoulders, darts, boxy or armhole princess with flare, overlap or wrap, notched lapel drafted in place, stand,
+funnel, shirt, convertible collars and hoods, two-piece, one-piece, raglan and kimono sleeves matched to the
+armhole, facings, lining, patch, in-seam, welt and jetted pockets). It writes the cut pieces and
 the 3D shell for CLO3D with every seam and wrap hold; `python scripts/sheet.py folder/pieces_<size>.json` draws PNG
 sheets (Pillow). Add a construction to `scripts/garment.py` rather than writing a one-off script.
 
@@ -61,6 +69,29 @@ Garments the engine has no block for are written as a recipe: pieces with named 
 and mirror pairs, plus a seam list pairing edges by node names, with declared ease
 (`references/piece-format.md`). `python scripts/pattern.py piece recipe.json --out folder` validates it with
 the same laws, exports it, and `clo3d ... --assemble` sews it in CLO3D. No new code per garment.
+
+## Data library
+
+The engine's numbers are data anyone can add to (`data/README.md`): size tables and ease in `data/measurements/`,
+construction values and presets in `data/constructions/`, real pieces digitised from patterns in `data/shapes/`,
+avatar arrangement points in `data/avatars/`. Each file states its source and a confidence: `measured`, `published`,
+`practice` or `unverified`. Say which one a draft rests on when it matters.
+
+```
+python scripts/pattern.py data list                              # what is available, with its confidence
+python scripts/pattern.py block all --table <id> --size 40       # draft from another size table
+python scripts/pattern.py shape <id> --measure G=190 --out dir   # draw a digitised shape, scaled
+python scripts/pattern.py digitize photo.png --id <id> --outline back --type bodice_back   # also .svg, .csv
+python scripts/pattern.py analyze <id>                           # measure a digitised pattern, list what is missing
+python scripts/pattern.py check                                  # validate every data file and entry
+```
+
+In a garment spec, `"collar": {"preset": "<id>"}` takes its values from a construction file, `"table"` and
+`"avatar"` choose the size table and the avatar. When the person gives a size chart, a real pattern or a
+correction, take it in by the method of `data/EXTRACTION.md` (a pattern: `references/pattern-intake.md`), put it in
+`data/` (or in the entry's file) rather than in a one-off script, run `check`, and offer to send it to the project
+(`CONTRIBUTING.md` at the root of the repository). The repository holds data only: the previews and analysis sheets
+next to the data are drawn by the skill itself.
 
 ## Knowledge map
 
@@ -72,13 +103,18 @@ python scripts/pattern.py kb search <words>     # English or French, accents ign
 python scripts/pattern.py kb show <id>
 ```
 
-Worked specs: `examples/notched-lapel-jacket/` (fitted and oversize, lined) and `examples/velvet-coat/` (princess,
-flare, 16 cm wrap, funnel collar, lined). Index: `references/kb/INDEX.md`. Format of an entry: `references/kb/FORMAT.md`. A shape marked
-"unverified" must be checked against real drawn patterns before it goes into a pattern.
+Entries are one file each, `references/kb/<family>/<id>.md`, and end with a `Status`: `measured`, `published`,
+`practice` or `unverified`. An `unverified` shape must be checked against real drawn patterns before it goes into a
+pattern; tell the person when a draft rests on one. Index: `references/kb/INDEX.md`. Format: `references/kb/FORMAT.md`.
+
+Worked specs: `examples/notched-lapel-jacket/` (fitted and oversize, lined), `examples/velvet-coat/` (princess,
+flare, 16 cm wrap, funnel collar, lined) and `examples/constructions/` (raglan, kimono, dolman, shirt, camp shirt,
+hooded jacket).
 
 | Need | Sheet |
 |---|---|
 | Analyse a photo, recognise constructions | `references/reference-analysis.md` |
+| Analyse a real pattern the person gives, add it to the library | `references/pattern-intake.md`, `data/EXTRACTION.md` |
 | Develop a sketch, sculptural volumes, unconventional cutting | `references/design-from-sketch.md` |
 | Skirts, trousers, shorts, jumpsuits | `references/techniques/skirts-trousers.md` |
 | Bodices, dart manipulation, dresses, tops, shirts | `references/techniques/bodices-dresses-tops.md` |
@@ -88,8 +124,10 @@ flare, 16 cm wrap, funnel collar, lined). Index: `references/kb/INDEX.md`. Forma
 | Gloves, hats, bags, belts, ties | `references/techniques/accessories.md` |
 | Seams, hems, facings, closures, pockets, gathers, elastic | `references/techniques/sewing-techniques.md` |
 | Engine blocks and how they are drafted | `references/blocks.md` |
+| Typical pieces as parametric templates (collars, cuffs, plackets, pockets, flaps, hoods, gusset, godet, fly, yoke) | `references/templates.md` |
 | Dart pivot, slash and spread, fullness | `references/transformations.md` |
 | Measurements, ease, finishes, piece format | `references/measurements.md`, `ease.md`, `finishes.md`, `piece-format.md` |
+| Size tables, construction presets, digitised shapes, avatars | `data/README.md` |
 | Sending, sewing and simulating in CLO3D | `references/clo3d.md` |
 
 ## Workflow
@@ -97,14 +135,18 @@ flare, 16 cm wrap, funnel collar, lined). Index: `references/kb/INDEX.md`. Forma
 1. **Understand the request**: garment, wearer, fabric (woven, knit, stretch, leather), intended fit.
    With an image, write the construction sheet (rule 1). Read the technique sheet of the family.
 2. **Measurements**: `python scripts/pattern.py measurements --body women --size 38` prints every
-   measurement used. For personal measurements, write a JSON file and pass it with `--measurements`.
+   measurement used (`--table <id>` for another size table of `data/measurements/`). For personal measurements,
+   write a JSON file and pass it with `--measurements`.
 3. **Ease**: by garment and fabric (`references/ease.md`), overridden in the measurements file (`"ease"`).
 4. **Base**: `python scripts/pattern.py block <skirt|bodice|sleeve|trousers|all> --body ... --out folder`
-   gives the standard blocks. `block glove --size 7 --length 40 --end-girth 26` drafts a leather glove like
+   gives the standard blocks, with their 3D shell and seams in `folder/clo3d/`. Options: `--knit` (no darts,
+   negative ease, no cap ease), `--sleeve-length`, `--sleeve-hem`; `block circle_skirt --fullness 1 --panels 2
+   --length 70`. `block glove --size 7 --length 40 --end-girth 26` drafts a leather glove like
    real glove patterns (trank, Bolton thumb in a tongued hole, fourchettes) with its seam list; personal
-   hand measurements go under `"hand"` in the measurements file (`references/techniques/accessories.md`). Garments that do not start from these blocks (gloves, hats, bags, circle
-   skirts, sculptural pieces) are drafted directly from their technique sheet, as pieces in the skill's
-   format (`references/piece-format.md`).
+   hand measurements go under `"hand"` in the measurements file (`references/techniques/accessories.md`).
+   Waistbands, stand collars, cuffs and straight facings are written as a `band` along the edges they join
+   (`references/piece-format.md`). Garments that do not start from these blocks (hats, bags, sculptural
+   pieces) are drafted directly from their technique sheet, as pieces in the skill's format.
 5. **Transformation**: `pivot` closes or transfers a dart, or opens a slash for fullness; `smooth`
    redraws a hem or a neckline. Methods in `references/transformations.md` and the technique sheets.
    Finish with `python scripts/pattern.py piece file.json --out folder`, which prints every edge length
@@ -115,10 +157,12 @@ flare, 16 cm wrap, funnel collar, lined). Index: `references/kb/INDEX.md`. Forma
 8. **Output**:
    - `pattern.svg`: print at 100 %, check the 10 cm square.
    - `pattern_<size>.dxf`: for CAD software (layers CUT, SEAM, NOTCHES, GRAIN, TEXT).
-   - `clo3d_<size>.py` and `clo3d_<size>.json`: for CLO3D, with the plugin and MCP server of
-     [clo3d-mcp-extended](https://github.com/adriendelmas/clo3d-mcp-extended). Exact curves, one CLO3D
-     line per pattern edge. Workflow, seams, mesh, placement: `references/clo3d.md`. Defaults for every
-     piece: added collision thickness 0, mesh size by fit.
+   - `clo3d_<size>.json`: the garment for CLO3D, built in one call by the plugin and MCP server of
+     [clo3d-mcp](https://github.com/Ubani-Studio/clo3d-mcp): exact curves, one CLO3D
+     line per pattern edge, seams, holds, and per piece its fabric role, mesh size and arrangement point.
+     `python scripts/pattern.py clo3d folder/clo3d/clo3d_38.json --fabrics shell=2 --snapshots views --save
+     file.zprj --simulate 300` builds it, checks the line lengths, captures the views and saves. Guards,
+     check loop, avatar measuring: `references/clo3d.md`. `clo3d_<size>.py`: standalone script, pieces only.
    - `pieces_<size>.json`: the skill's editable format, in cm.
 
 ## Conventions

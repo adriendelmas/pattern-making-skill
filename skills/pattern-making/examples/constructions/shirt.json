@@ -1,0 +1,40 @@
+{
+ "title": "Shirt",
+ "shaping": "boxy",
+ "fit": {
+  "side_ease": 2.5,
+  "arm_drop": 2.0
+ },
+ "length": {
+  "below_waist": 30
+ },
+ "front": {
+  "extension": 1.75,
+  "buttons": [
+   6,
+   15,
+   24,
+   33,
+   42
+  ]
+ },
+ "collar": {
+  "type": "shirt"
+ },
+ "sleeve": {
+  "type": "one-piece",
+  "hem": 26,
+  "ease": 1.0
+ },
+ "facing": {
+  "type": "width",
+  "width": 5
+ },
+ "pockets": [
+  {
+   "type": "welt",
+   "where": "chest",
+   "length": 10.5
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "two-piece-hood",
+  "kind": "construction",
+  "applies_to": "collar.hood",
+  "default": true,
+  "title": "Two-piece hood, adult",
+  "unit": "cm (angles in degrees)",
+  "values": {"height": 34.0, "depth": 30.0, "radius": 12.0},
+  "doc": {
+    "height": "from the neck seam to the top of the head",
+    "depth": "face edge to centre back at head level",
+    "radius": "rounding of the top back corner"
+  },
+  "provenance": {
+    "source": "references/techniques/sleeves-collars.md section 2.10; kb hood-two-piece",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-19",
+    "notes": "Values inside the ranges of the technique sheet; the outline they give was not compared to a published draft."
+  }
+}

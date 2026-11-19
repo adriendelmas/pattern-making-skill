@@ -3,6 +3,9 @@
 All measurements in centimetres, taken close to the body, over fitted underwear, without pulling.
 Mark the natural waist with a tape or an elastic before starting.
 
+The standard sizes come from the tables of `data/measurements/` (`python scripts/pattern.py data list`); `--table
+<id>` chooses one, and a new table is a JSON file with one row per size (`data/README.md`).
+
 ## Keys read by the script
 
 | Key | How to take it | Blocks |

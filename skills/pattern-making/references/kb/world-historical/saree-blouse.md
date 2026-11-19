@@ -1,0 +1,16 @@
+# Saree blouse (choli) {#saree-blouse}
+
+- **Aliases**: sari blouse, choli, ravike (Kannada), jacket blouse; fr: corsage de sari, choli
+- **Family**: South Asian garments (fitted short bodice worn under the saree)
+- **Recognize**: short fitted blouse ending at or just below the underbust or waist, usually cut with princess seams or bust darts front and back, set-in short or elbow sleeves, a closure of hooks or a zip at centre front or centre back, often a deep back neckline, cups sometimes padded.
+- **Pieces**: front panel (2, each with princess seam or bust and waist darts), back panel (2, split at centre back for the opening), sleeve (2), neck and armhole facings (2-3), optional side panel (2, for the princess cut), cup lining or padding (as needed)
+- **Shape**: The blouse is a fitted bodice block cut short, not a rectangular garment. Front: waist-length bodice with a bust dart, or a princess seam running from the armhole or shoulder through the bust apex to the hem; the front neck is deeper than the back. Back: two panels, each shaped with a waist dart or a back princess seam; the centre back is straight (zip or hooks) or carries an overlap; the back neck is shallower than the front but is often scooped low as a design choice. Sleeve: a standard set-in sleeve block shortened. Source: general fitted-bodice practice and Indian vocational dress-making manuals (CTS Dress Making trade practical, NIMI); no dimensioned drawing was read, so the numbers are unverified.
+- **Drafting**: 1. Take bust, underbust or waist, armhole, shoulder, front length, back length, front and back neck depth, sleeve length. 2. Draft a close-fitting bodice from a basic block (see #close-fitting-bodice-block) shortened at the waist or just below the underbust. 3. Place the princess seam from armhole or shoulder through the bust apex to the hem, or use a bust dart and a waist dart. 4. Seam allowances in one free online tutorial: about 6 mm at neckline and centre front, 12 mm at shoulder, armhole and hem, and about 38 mm at the side seams (a wide side allowance is conventional in Indian tailoring so the blouse can be let out). 5. Add allowance at the centre back or centre front for the closure.
+- **Sewing order**: 1. interline or pad the cups. 2. sew darts or princess seams. 3. shoulder seams. 4. face or bind the neckline. 5. set the sleeves. 6. side seams. 7. closure (hooks and eyes, zip, or tie-backs). 8. hem.
+- **Finishes and notions**: hooks and eyes, zip, piping on the neckline, cup padding, tie-back cords.
+- **Fabrics**: silk, cotton, brocade, georgette with lining; stretch fabric needs less ease.
+- **Fit faults**: neckline gapes -> add a shaped neck dart or reduce the front neck width; armhole cuts into the arm -> lower the underarm and widen the sleeve; blouse rides up under the pleated saree -> lengthen the bodice at the hem.
+- **Variants**: #sari-petticoat (the saree base), #lehenga (also worn with a choli), #anarkali.
+- **CLO3D**: build front, side-front and back panels as a fitted bodice with princess seams; sew shoulders and sides; silk or cotton preset; the saree drape itself is an unsewn rectangle (about 5-9 m long) that the user must place by hand.
+- **Confidence**: trade practice / vocational manual; numbers unverified.
+- **Status**: unverified

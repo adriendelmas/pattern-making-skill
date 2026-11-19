@@ -1,0 +1,16 @@
+# Basic Brief {#basic-brief}
+
+- **Aliases**: full brief, classic brief, panties, knickers, mid-rise brief; fr: culotte, slip (femme), culotte taille mi-haute
+- **Family**: lingerie, briefs (knit)
+- **Recognize**: three-piece stretch garment: front, back and a lined crotch gusset; side seams; waist and leg openings finished with elastic or a turned edge; leg curve moderate, mid rise.
+- **Pieces**: front (1), back (1), gusset outer (1), gusset lining (1), waist elastic (1), leg elastic (2). Front and back are single pieces (the side seams are on the pattern edge); gusset lining often cotton jersey.
+- **Shape**: trade practice, consistent with techniques 5.7; no drawn pattern. Front FP and back BP are cut on the fold at CF and CB. Anchors: W = waist corner at the side seam, H = hip point on the side seam, L = leg point (where the leg curve meets the side seam), C = crotch end of the leg curve. Side seam W-H-L straight to slightly curved, about 10 to 14 cm tall in a full brief (unverified). Leg curve L to C concave toward the body; the back BP curve is deeper than the front FP curve, and BP is wider at the crotch (back width at the gusset 9 to 11 cm, front 7 to 8 cm, techniques 5.7). Gusset: a long rounded rectangle 7 to 8 cm wide, 12 to 14 cm long, rounded at both ends. Joins: FP side seam to BP side seam; the gusset front end sews to the front crotch edge of FP, the gusset back end to the back crotch edge of BP; the lining layer of the gusset encloses one of these edges (sandwich); leg elastic runs around the whole leg opening L-C-gusset-C-L.
+- **Drafting**: 1. Take hip, waist, rise from waist to crotch; choose the reduction R (10 to 15 percent for 50 to 80 percent stretch, techniques 5.7). 2. Draw half-hip width x (1 - R) and the rise: front rise 15 to 20 cm, back rise 22 to 28 cm for a full brief (techniques 5.7; typical). 3. Draw the waist line straight CF to W, slightly curved at the hip. 4. Draw the leg curve from C to a point 5 to 8 cm above the hip line on the side seam. 5. Draw the gusset 7 to 8 cm x 12 to 14 cm, rounded. 6. Leg elastic at 0.85 to 0.95 of the leg edge, waist elastic 0.85 to 0.90 (techniques 5.7). 7. Seam allowance 0.6 to 1.0 cm (overlock), none if edges are elastic-bound.
+- **Sewing order**: assemble the gusset (outer plus lining stitched at the front end) and attach to the back first, then the front; sew side seams; leg elastics; waist elastic (techniques 5.7).
+- **Finishes and notions**: 6 to 12 mm leg elastic (plush-back or picot), 10 to 25 mm waist elastic, 3-step zigzag or coverstitch, lace trim optional.
+- **Fabrics**: cotton jersey with 5 to 8 percent elastane, microfibre, stretch lace. Higher stretch means a larger reduction; a lace brief needs a stabilised crotch.
+- **Fit faults**: leg elastic cuts: lengthen elastic 3 percent; leg gapes: shorten 3 percent; back sags: raise back rise 1 to 2 cm; crotch rides: shorten the gusset (techniques 5.7).
+- **Variants**: #bikini-brief, #hipster-brief, #boyshort, #high-waist-brief, #thong, #french-knickers.
+- **CLO3D**: front, back and gusset patterns; mesh 4 to 6 mm; sew the gusset to the crotch edges, leg and waist edges with the elastic ratio; collision thickness 0.
+- **Confidence**: proportions typical (techniques 5.7, trade practice); outlines unverified.
+- **Status**: unverified

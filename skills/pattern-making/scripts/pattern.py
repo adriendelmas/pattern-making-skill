@@ -12,11 +12,16 @@ Inputs in cm, SVG/DXF/CLO3D outputs in mm.
   python pattern.py test
 """
 import argparse
+import copy
 import json
 import math
 import os
+import re
 import sys
 import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import library  # noqa: E402
 
 # ------------------------------------------------------------------ geometry
 
@@ -437,46 +442,26 @@ class Draft:
         return sum(length(edge(self.piece, self.idx[x])) for x in names)
 
 # ------------------------------------------------------------------ measurements
-# Indicative values (France / Europe): starting point, fallback when a measurement is missing,
-# and basis for grading. Always prefer real body measurements.
-
-BASE = {
-    "women": {"ref": 38, "bust": 88, "waist": 68, "hip": 94, "back_length": 41, "hip_depth": 20,
-              "skirt_length": 60, "arm_length": 59, "wrist": 16, "body_rise": 27,
-              "trouser_length": 102, "knee_width": 42, "hem_width": 38},
-    "men": {"ref": 48, "bust": 96, "waist": 82, "hip": 98, "back_length": 45, "hip_depth": 21,
-            "skirt_length": 60, "arm_length": 64, "wrist": 17.5, "body_rise": 27,
-            "trouser_length": 106, "knee_width": 46, "hem_width": 42},
-}
-GRAD = {"bust": 4, "waist": 4, "hip": 4, "back_length": 0.5, "arm_length": 0.5,
-        "wrist": 0.5, "body_rise": 0.5, "knee_width": 1, "hem_width": 1}
-CHILDREN = {4: (104, 56, 53, 58), 6: (116, 60, 55, 63), 8: (128, 64, 57, 68),
-            10: (140, 70, 60, 74), 12: (152, 76, 63, 80), 14: (164, 82, 66, 87)}  # age: height, bust, waist, hip
-CHILDREN_LENGTHS = {"back_length": 29, "hip_depth": 13, "skirt_length": 35, "arm_length": 43,
-                    "wrist": 13, "body_rise": 20, "trouser_length": 76, "knee_width": 32,
-                    "hem_width": 30}                                               # at age 8, 128 cm
-
-EASE = {
-    "women": {"bust": 8, "bodice_waist": 4, "skirt_waist": 1, "skirt_hip": 4, "trouser_waist": 1,
-              "trouser_hip": 4, "sleeve_cap": 2.5, "wrist": 8, "shoulder": 0.8},
-    "men": {"bust": 10, "bodice_waist": 6, "skirt_waist": 1, "skirt_hip": 4, "trouser_waist": 1,
-            "trouser_hip": 6, "sleeve_cap": 1.5, "wrist": 10, "shoulder": 0.6},
-    "children": {"bust": 8, "bodice_waist": 6, "skirt_waist": 2, "skirt_hip": 6, "trouser_waist": 2,
-                 "trouser_hip": 6, "sleeve_cap": 1.5, "wrist": 8, "shoulder": 0.5},
-}
+# The tables live in data/measurements/ (size charts, grading, ease) and are read through library.py, so a
+# pattern maker can add or correct one without touching this file. Always prefer real body measurements.
 
 
-def standard_measurements(body, size=None):
-    if body == "children":
-        age = int(size or 8)
-        if age not in CHILDREN:
-            raise SystemExit(f"Available children's ages: {sorted(CHILDREN)}")
-        st, B, W, H = CHILDREN[age]
-        return {"bust": B, "waist": W, "hip": H,
-                **{c: round(v * st / 128, 1) for c, v in CHILDREN_LENGTHS.items()}}
-    base = BASE[body]
-    k = (float(size or base["ref"]) - base["ref"]) / 2
-    return {c: round(v + GRAD.get(c, 0) * k, 1) for c, v in base.items() if c != "ref"}
+def standard_measurements(body, size=None, table=None):
+    return library.standard(body, size, table)
+
+
+def standard_ease(body):
+    return library.ease(body)
+
+
+def arrange_for(piece_name):
+    """Arrangement of a 3D piece on the current avatar (data/avatars/): {"name": point, ...}, or None. Looked up
+    by the piece's full name, then by its first word."""
+    table = library.arrangement(library.STATE.get("avatar"))
+    v = table.get(piece_name, table.get(piece_name.split(" ")[0]))
+    if v is None:
+        return None
+    return {"name": v} if isinstance(v, str) else dict(v)
 
 
 def complete(m, body):
@@ -546,20 +531,22 @@ def block_skirt(m, a, body):
                        check("Skirt: finished waist", total, W + a["skirt_waist"], 0.6)]}
 
 
-def block_bodice(m, a, body):
+def block_bodice(m, a, body, knit=False):
     B, W, N, S = m["bust"], m["waist"], m["neck"], m["shoulder"]
     AD, NW = m["armhole_depth"], m["back_length"]
     BW, CW = m["half_back_width"], m["half_chest_width"]
     women = body == "women"
     Q = (B + a["bust"]) / 4
     Wq = (W + a["bodice_waist"]) / 4
-    bd = m.get("bust_dart", 0) if women else 0
+    bd = m.get("bust_dart", 0) if women and not knit else 0
     sd_back, sd_front = {"women": (4, 5), "men": (4.5, 5.5), "children": (3, 4)}[body]
     nw = N / 5 - 0.2
     ya, yw = 2 + AD, 2 + NW
     diff = max(Q - Wq, 0) if women else 0
 
     def share(d, maxp):
+        if knit:                                     # knit: no darts, the side seam takes the whole difference
+            return d, 0
         c = min(d * 0.4, 2.5)
         p = d - c
         if p < 0.5:
@@ -654,7 +641,7 @@ def block_sleeve(m, a, body, bodice):
                     {"edge": t.e("front_underarm"), "d": bodice["armhole_low"]["front"] + e},
                     {"edge": t.e("cap"), "d": dd}, {"edge": t.e("cap"), "d": dd - 1}]
     p["grain"] = [[0, capH + 2], [0, L - 5]]
-    return {"pieces": [p],
+    return {"pieces": [p], "knots": {"sleeve_back": dd, "sleeve_front": bodice["armhole_low"]["front"] + e},
             "checks": [check("Sleeve: cap - armhole (ease)", t.lg("cap", "front_underarm") - AH,
                              a["sleeve_cap"], 0.2),
                        check("Sleeve: cap height (info)", capH), check("Sleeve: width (info)", 2 * hw)]}
@@ -715,6 +702,236 @@ def block_trousers(m, a, body):
                              meas["front"]["crotch"] + meas["back"]["crotch"])]}
 
 
+# ------------------------------------------------------------------ circle skirt
+
+
+def arc_nodes(prefix, r, th0, th1, cy, first_name=None):
+    """Nodes of a circular arc about (0, cy), radius r, from angle th0 to th1 (0 = straight down, positive
+    towards +x), as cubic Beziers of 90 degrees at most. The last node is returned without a curve."""
+    n = max(1, int(math.ceil(abs(th1 - th0) / (math.pi / 2) - 1e-9)))
+    step = (th1 - th0) / n
+    k = 4.0 / 3.0 * math.tan(abs(step) / 4)
+    sgn = 1 if step > 0 else -1
+    pt = lambda th: [r * math.sin(th), cy + r * math.cos(th)]
+    out = []
+    for i in range(n):
+        a, b = th0 + i * step, th0 + (i + 1) * step
+        ta, tb = (r * math.cos(a) * sgn, -r * math.sin(a) * sgn), (r * math.cos(b) * sgn, -r * math.sin(b) * sgn)
+        pa, pb = pt(a), pt(b)
+        out.append({"name": first_name if (i == 0 and first_name) else f"{prefix}{i}", "p": pa,
+                    "c": [[pa[0] + ta[0] * k, pa[1] + ta[1] * k], [pb[0] - tb[0] * k, pb[1] - tb[1] * k]]})
+    return out, pt(th1)
+
+
+def block_circle_skirt(m, a, fullness=1.0, panels=2, length_cm=None):
+    """Circle skirt (full 1.0, half 0.5, quarter 0.25...) in `panels` panels of equal angle, waist radius from the
+    finished waist, hems trued as arcs. Panels are full pieces (no fold), sewn side to side; 2 panels give a front
+    and a back with side seams, 1 panel a single seam."""
+    W = m["waist"] + a["skirt_waist"]
+    L = length_cm or m["skirt_length"]
+    r = W / (2 * math.pi * fullness)
+    ang = 2 * math.pi * fullness / panels
+    names = (["Circle skirt"] if panels == 1 else ["Circle skirt front", "Circle skirt back"] if panels == 2
+             else [f"Circle skirt panel {i + 1}" for i in range(panels)])
+    pieces, waist_total, hem_total, seams = [], 0.0, 0.0, []
+    for nm in names:
+        waist, w_end = arc_nodes("waist_", r, -ang / 2, ang / 2, -r, first_name="waist_start")
+        hem, h_end = arc_nodes("hem_", r + L, ang / 2, -ang / 2, -r, first_name="hem_end")
+        waist_end = {"name": "waist_end", "p": w_end}
+        hem_start = {"name": "hem_start", "p": h_end}
+        p = {"name": nm, "cut": "1x", "allowance": 1.0, "outline": waist + [waist_end] + hem + [hem_start],
+             "grain": [[0, 3], [0, L - 5]], "fabric": "shell"}
+        p["allowances"] = {str(len(waist) + 1 + i): 1.0 for i in range(len(hem))}   # narrow hem on a curve
+        p["notches"] = [{"edge": 0, "d": 0}] if nm.endswith("back") else []
+        pieces.append(p)
+        waist_total += sum(length(edge(p, i)) for i in range(len(waist)))
+        hem_total += sum(length(edge(p, len(waist) + 1 + i)) for i in range(len(hem)))
+    for i, p in enumerate(pieces):                       # right side of panel i onto the left side of panel i + 1
+        q = pieces[(i + 1) % panels]
+        seams.append([p["name"], "waist_end", "hem_end", q["name"], "waist_start", "hem_start"])
+    arrange = {1: ["Leg_Skirt_Front"], 2: ["Leg_Skirt_Front", "Leg_Skirt_Back"]}.get(panels, [])
+    for p, nm in zip(pieces, arrange):
+        p["arrange"] = {"name": nm}
+    return {"pieces": pieces, "seams": seams,
+            "checks": [check("Circle skirt: finished waist", waist_total, W, 0.3),
+                       check("Circle skirt: waist radius (info)", r), check("Circle skirt: hem length (info)", hem_total)]}
+
+
+# ------------------------------------------------------------------ bands (waistbands, stand collars, cuffs)
+
+
+def _named_edge_len(piece, a, b):
+    """Length of the edge between neighbouring nodes a and b (either direction)."""
+    nds = piece["outline"]
+    n = len(nds)
+    names = [x.get("name") for x in nds]
+    if a not in names or b not in names:
+        raise SystemExit(f"{piece['name']}: no node {a if a not in names else b}")
+    i, j = names.index(a), names.index(b)
+    if (i + 1) % n == j:
+        return length(edge(piece, i, 64))
+    if (j + 1) % n == i:
+        return length(edge(piece, j, 64))
+    raise SystemExit(f"{piece['name']}: {a} and {b} are not neighbours")
+
+
+def expand_bands(pieces, seams):
+    """A piece written as {"name", "band": {"height", "along": [[piece, a, b]...], "ease", "why", "extension"}}
+    becomes a straight band as long as the edges it is sewn to, its lower edge split at the same points
+    (nodes b0, b1...), with one seam per edge. `extension` adds an underlap past the last edge. A folded band
+    (waistband, cuff) is cut at twice the height: `height` is the finished height, as sewn in 3D."""
+    by = {p["name"]: p for p in pieces}
+    for p in pieces:
+        b = p.get("band")
+        if not b:
+            continue
+        h, ease = float(b["height"]), float(b.get("ease", 0.0))
+        x, bottom, segs = 0.0, [{"name": "b0", "p": [0.0, h]}], []
+        for k, (nm, a1, a2) in enumerate(b["along"]):
+            if nm not in by:
+                raise SystemExit(f"{p['name']}: band along unknown piece {nm}")
+            x += _named_edge_len(by[nm], a1, a2) * (1 + ease)
+            bottom.append({"name": f"b{k + 1}", "p": [round(x, 4), h]})
+            segs.append((nm, a1, a2, k))
+        ext = float(b.get("extension", 0.0))
+        top = [{"name": "top_start", "p": [0.0, 0.0]}, {"name": "top_end", "p": [round(x + ext, 4), 0.0]}]
+        if ext:
+            bottom.append({"name": "b_ext", "p": [round(x + ext, 4), h]})
+        p["outline"] = top + list(reversed(bottom))
+        p.setdefault("cut", "1x")
+        p.setdefault("allowance", 1.0)
+        p.setdefault("grain", [[2.0, h / 2], [max(x - 2.0, 4.0), h / 2]])
+        p["fabric"] = p.get("fabric", "shell")
+        for nm, a1, a2, k in segs:
+            extra = [{"ease": round(ease, 4), "why": b.get("why", "band eased onto the edge")}] if abs(ease) > 1e-6 else []
+            seams.append([p["name"], f"b{k}", f"b{k + 1}", nm, a1, a2] + extra)
+        del p["band"]
+    return pieces, seams
+
+
+# ------------------------------------------------------------------ 3D shell of the standard blocks
+# The cut pieces stay as drafted (half pieces on the fold, "2x" pieces once). The shell sent to CLO3D unfolds
+# the fold pieces and mirrors the others into L and R, with every seam one edge to one edge (garment.Seams
+# splits the longer chain where needed and declares each ratio as ease).
+
+WEARER_RIGHT = ("Skirt back", "Bodice back", "Trousers front", "Back", "Side back")   # original half = wearer's right
+OPP = {"L": "R", "R": "L"}
+
+
+def shell_from_blocks(res, knit=False):
+    """3D shell (pieces and seams) of the pieces drafted by `build`."""
+    import garment as G
+    shell = {}
+    for p in res["pieces"]:
+        q = copy.deepcopy(p)
+        for k in ("buttons", "lines"):
+            q.pop(k, None)
+        pair = str(q.get("cut", "")).startswith("2") or "pair" in str(q.get("cut", ""))
+        q = unfold(q) if q.get("fold") else dict(q, mirror=True) if pair else q
+        for k in ("fold", "allowances", "notches"):
+            q.pop(k, None)
+        q["fabric"] = q.get("fabric", "shell")
+        if q["name"] in WEARER_RIGHT:
+            q["wearer"] = "right"
+        if not q.get("arrange") and arrange_for(q["name"]):
+            q["arrange"] = arrange_for(q["name"])
+        if knit and q["name"] in ("Bodice front", "Bodice back", "Sleeve"):
+            q["particle_distance"] = 8          # close-fitting knit: the default 20 mm lets the skin through
+        shell[q["name"]] = q
+    seams = list(res.get("seams", []))
+    sm = G.Seams(shell)
+    has = lambda nm, *nodes: nm in shell and all(any(n.get("name") == x for n in shell[nm]["outline"]) for x in nodes)
+
+    def node_knots(A, B):
+        """Knots at every intermediate node of two chains with the same number of edges: nodes meet nodes."""
+        pa = pb = 0.0
+        out = []
+        for (na, a1, a2), (nb, b1, b2) in list(zip(A, B))[:-1]:
+            pa += G.edge_len(shell[na], a1, a2)
+            pb += G.edge_len(shell[nb], b1, b2)
+            out.append((pa, pb))
+        return out
+
+    def chain(nm, *nodes):
+        """Consecutive edges from node to node along the outline, including nodes inserted by earlier matches."""
+        names = [n.get("name", "") for n in shell[nm]["outline"]]
+        n, out = len(names), []
+        for a, b in zip(nodes, nodes[1:]):
+            i, j = names.index(a), names.index(b)
+            fwd = [(names[(i + k) % n], names[(i + k + 1) % n]) for k in range((j - i) % n)]
+            bwd = [(names[(i - k) % n], names[(i - k - 1) % n]) for k in range((i - j) % n)]
+            out += [(nm, x, y) for x, y in (fwd if len(fwd) <= len(bwd) else bwd)]
+        return out
+
+    def darts(nm, prefix, sides):
+        names = [n.get("name", "") for n in shell[nm]["outline"]]
+        for tip in [x for x in names if re.fullmatch(prefix + r"\d*(_sym)?", x)]:
+            base = tip[:-4] if tip.endswith("_sym") else tip
+            suf = "_sym" if tip.endswith("_sym") else ""
+            if base + "_1" + suf in names and base + "_2" + suf in names:
+                sm.match([(nm, base + "_1" + suf, tip)], [(nm, base + "_2" + suf, tip)], why="dart legs",
+                         sides="R" if suf else sides)
+
+    if has("Skirt front", "side_waist") and has("Skirt back", "side_waist"):
+        sm.match(chain("Skirt front", "side_waist", "hip", "side_hem"), chain("Skirt back", "side_waist", "hip", "side_hem"),
+                 why="side seam", sides="L")
+        sm.match(chain("Skirt front", "side_waist_sym", "hip_sym", "side_hem_sym"), chain("Skirt back", "side_waist", "hip", "side_hem"),
+                 why="side seam", sides="R")
+        sm.match([("Skirt back", "center_hem", "center_waist")], [("Skirt back", "center_hem", "center_waist")], why="centre back", sides="LR")
+        darts("Skirt front", "dart", "L")
+        darts("Skirt back", "dart", None)
+    if has("Bodice front", "shoulder") and has("Bodice back", "shoulder"):
+        F, B = "Bodice front", "Bodice back"
+        for side, nm_ in (("L", lambda x: x), ("R", lambda x: x + "_sym")):
+            sm.match([(B, "neck", "shoulder")], [(F, nm_("neck"), nm_("shoulder"))], why="back shoulder ease", sides=side)
+            fs = (chain(F, nm_("underarm"), nm_("side_dart_1")) + chain(F, nm_("side_dart_2"), nm_("side_waist"))
+                  if has(F, "side_dart") else chain(F, nm_("underarm"), nm_("side_waist")))
+            sm.match(chain(B, "underarm", "side_waist"), fs, why="side seam, bust dart closed", sides=side)
+        sm.match([(B, "center_waist", "center_neck")], [(B, "center_waist", "center_neck")], why="centre back", sides="LR")
+        darts(F, "waist_dart", "L")
+        darts(F, "side_dart", "L")
+        darts(B, "dart", None)
+    if has("Sleeve", "cap") and has("Bodice back", "across") and res.get("knots"):
+        S_, F, B, kn = "Sleeve", "Bodice front", "Bodice back", res["knots"]
+        sm.match([(S_, "back_underarm", "back_wrist")], [(S_, "front_underarm", "front_wrist")], why="sleeve underarm seam")
+        sm.match(chain(S_, "cap", "back_underarm"), chain(B, "shoulder", "across", "underarm"),
+                 knots=[(kn["sleeve_back"], G.elen(shell[B], "shoulder", "across"))], why="sleeve cap ease, back")
+        for side, nm_ in (("L", lambda x: x), ("R", lambda x: x + "_sym")):
+            front_arm = chain(F, nm_("underarm"), nm_("across"), nm_("shoulder"))
+            sm.match(chain(S_, "front_underarm", "cap"), front_arm,
+                     knots=[(kn["sleeve_front"], sum(G.edge_len(shell[F], x, y) for _, x, y in chain(F, nm_("underarm"), nm_("across"))))],
+                     why="sleeve cap ease, front", sides=side)
+    if has("Trousers front", "crotch") and has("Trousers back", "crotch"):
+        TF, TB = "Trousers front", "Trousers back"
+        side_ch = lambda nm: [(nm, "side_waist", "hip"), (nm, "hip", "outer_knee"), (nm, "outer_knee", "outer_hem")]
+        in_ch = lambda nm: [(nm, "inner_hem", "inner_knee"), (nm, "inner_knee", "crotch")]
+        sm.match(side_ch(TF), side_ch(TB), knots=node_knots(side_ch(TF), side_ch(TB)), why="side seam")
+        sm.match(in_ch(TF), in_ch(TB), knots=node_knots(in_ch(TF), in_ch(TB)), why="inseam, back eased onto the front")
+        for nm in (TF, TB):
+            cf = chain(nm, "crotch", "center_hip", "center_waist")
+            sm.match(cf, cf, why="centre seam", sides="LR")
+            darts(nm, "dart", None)
+    seams += shell_seams(sm.rows, shell)
+    return {"pieces": list(shell.values()), "seams": seams, "checks": []}
+
+
+def shell_seams(rows, shell):
+    """Seams.match rows -> seam list with piece sides: `sides` None = both wearer sides, "L"/"R" = one wearer
+    side (a fold piece's original or _sym half), "LR" = the piece's left half onto its right half."""
+    def suffix(nm, w):
+        if not shell[nm].get("mirror"):
+            return ""
+        return " " + (w if shell[nm].get("wearer", "left") != "right" else OPP[w])
+    out = []
+    for (a, b, opt, sides) in rows:
+        if sides == "LR":
+            out.append([f"{a[0]} L", a[1], a[2], f"{b[0]} R", b[1], b[2]] + opt)
+            continue
+        for w in (("L", "R") if sides is None else (sides,)):
+            out.append([a[0] + suffix(a[0], w), a[1], a[2], b[0] + suffix(b[0], w), b[1], b[2]] + opt)
+    return out
+
+
 # ------------------------------------------------------------------ glove
 # Leather glove drafted like real glove patterns (references/techniques/accessories.md, part 1):
 # one trank (back and palm side by side, fold below the index crotch, straight parallel fingers separated by
@@ -722,25 +939,13 @@ def block_trousers(m, a, body):
 # a Bolton thumb (heart shape folded on its axis) set into a drop-shaped hole with a V tongue, and one
 # fourchette arm per finger side. Hand measurements in mm, size 7 values as default (sheet, section 1.6).
 
-GLOVE_HAND = {"G": 178, "HL": 175, "h_I": 94, "h_M": 98, "h_R": 94, "h_L": 85, "F_I": 66, "F_M": 77, "F_R": 69,
-              "F_L": 55, "Cf_I": 56, "Cf_M": 58, "Cf_R": 54, "Cf_L": 48, "T_o": 60, "T_p": 45, "T_g": 62,
-              "Web_T": 80, "end_below_wrist": 120, "end_girth": 160}
 FINGERS_ORDER = ("L", "R", "M", "I")              # back half, from the little finger side
 GLOVE_SLIT = 0.5                                  # half width of a slit, mm (a die cut has none; CLO3D needs a gap)
 
 
 def glove_hand(size=7.0, own=None):
-    """Hand measurements in mm: size 7 table graded by half sizes (sheet 1.5), then personal values."""
-    k = (float(size) - 7.0) * 2                   # half sizes away from 7
-    h = dict(GLOVE_HAND)
-    h["G"] += 12.7 * k
-    for key in ("HL", "h_I", "h_M", "h_R", "h_L", "Web_T"):
-        h[key] += 4.5 * k
-    for key in ("F_I", "F_M", "F_R", "F_L", "T_o", "T_p"):
-        h[key] += 1.2 * k
-    for key in ("Cf_I", "Cf_M", "Cf_R", "Cf_L"):
-        h[key] += 3.2 * k
-    h["T_g"] += 2 * k
+    """Hand measurements in mm: data/measurements/glove-hand.json graded by half sizes, then personal values."""
+    h = library.standard("hand", size, "glove-hand")
     h.update(own or {})
     return h
 
@@ -805,38 +1010,26 @@ def block_glove(h, stretch_ease=2.0):
     o.append({"name": "side_p", "p": [W, y_side]})
     o.append({"name": "cuff_p", "p": [W + flare, y_end]})
 
-    # ---- thumb hole and Bolton thumb, digitised from a published leather glove pattern (The Shapes of Fabric,
-    # size about 7) and scaled to the hand. Hole: along the fold, top about 40 mm under the finger bases, round
-    # bottom with a notch near the wrist, a V flap at the top freed by a curved slit that runs from the top
-    # corner away from the fold up to a dot. Thumb: wide oval (width about 0.72 of the height) with two lobes
-    # at the top and a cleft on the fold axis; folded, the lobes sewn together make the tip; a slit from the
-    # side edge to a dot takes the flap; two notches on the other side bound the part sewn to the flap edges.
-    sc = G / 180.0
+    # ---- thumb hole and Bolton thumb: a digitised shape, data/shapes/bolton-thumb.json (its provenance is there),
+    # scaled to the hand. Hole: along the fold, top about 40 mm under the finger bases, round bottom, a V flap at
+    # the top freed by a curved slit that runs from the top corner away from the fold up to a dot. Thumb: wide oval
+    # with two lobes at the top and a cleft on the fold axis; folded, the lobes sewn together make the tip; a slit
+    # from the side edge to a dot takes the flap; two notches on the other side bound the part sewn to the flap.
+    shape = library.load("shape", "bolton-thumb")
+    sc = G / float(shape["reference"]["G"])
     TLh = (Wb + 2 * sc, crotch_p[("I", "M")] - 40 * sc)
-    hp = lambda x, y: (TLh[0] + x * sc, TLh[1] + y * sc)           # hole template, mm, y up from the top left
-    hTL, hB, hRM, hTR, hV, hD = hp(0, 0), hp(13.6, -54), hp(30.6, -24), hp(27.9, -3.9), hp(14.3, -9.3), hp(19.4, 10)
-    vx, vy = hV[0] - hTR[0], hV[1] - hTR[1]
-    vl = math.hypot(vx, vy)
-    hTR2 = (hTR[0] + vx / vl * 1.0, hTR[1] + vy / vl * 1.0)       # the two lips of the slit, 1 mm apart
-    hc = lambda x, y: [x * sc, y * sc]
-    hole = [{"name": "h_TL", "p": list(hTL), "c": [[hTL[0] - 1 * sc, hTL[1] - 25 * sc], [hB[0] - 10 * sc, hB[1]]]},
-            {"name": "h_B", "p": list(hB), "c": [[hB[0] + 10 * sc, hB[1]], [hRM[0], hRM[1] - 12 * sc]]},
-            {"name": "h_RM", "p": list(hRM), "c": [[hRM[0], hRM[1] + 8 * sc], [hTR[0] + 2 * sc, hTR[1] - 5 * sc]]},
-            {"name": "h_TR", "p": list(hTR), "c": [[hTR[0] - 2 * sc, hTR[1] + 6 * sc], [hD[0] + 5 * sc, hD[1] - 2 * sc]]},
-            {"name": "h_D", "p": list(hD), "c": [[hD[0] + 5 * sc, hD[1] - 2.6 * sc], [hTR2[0] - 2 * sc, hTR2[1] + 6 * sc]]},
-            {"name": "h_TR2", "p": list(hTR2)},
-            {"name": "h_V", "p": list(hV)}]
+    hp = lambda q: [TLh[0] + q[0] * sc, TLh[1] - q[1] * sc]           # shape file: mm, y down from the hole's top left
+    hole = [dict({"name": n["name"], "p": hp(n["p"])}, **({"c": [hp(c) for c in n["c"]]} if "c" in n else {}))
+            for n in shape["outlines"]["hole"]["nodes"]]
     hole_piece = {"outline": hole}
     hl = {n["name"]: length(edge(hole_piece, i, 200)) for i, n in enumerate(hole)}   # edge length from each node
     ease = 1.03                                          # thumb edges 3 % longer than the hole edges they meet
     seg_targets = [hl["h_TR2"] * ease, hl["h_V"] * ease, hl["h_TL"] * ease, hl["h_B"] * ease, hl["h_RM"] * ease]
     slit_target = hl["h_TR"] * ease
 
-    # thumb template (unit = thumb height, x from the fold axis, y down from the top of the lobes)
-    T = {"C": (0, 0.15), "LL": (-0.15, 0), "a": (-0.29, 0.20), "N1": (-0.32, 0.39), "N2": (-0.38, 0.58),
-         "b": (-0.30, 0.85), "B": (0, 1.0), "c": (0.27, 0.85), "RM": (0.34, 0.48), "Ps": (0.35, 0.39),
-         "d": (0.30, 0.15), "RL": (0.15, 0)}
-    order = ["C", "LL", "a", "N1", "N2", "b", "B", "c", "RM", "Ps", "d", "RL", "C"]
+    # thumb outline of the shape file (unit = thumb height, x from the fold axis, y down from the top of the lobes)
+    T = {q["name"]: tuple(q["p"]) for q in shape["outlines"]["thumb"]["points"]}
+    order = [q["name"] for q in shape["outlines"]["thumb"]["points"]] + ["C"]
     pts_ = [T[k] for k in order]
 
     def catmull(pts, n=40):
@@ -899,7 +1092,8 @@ def block_glove(h, stretch_ease=2.0):
         th_o.append({"name": a, "p": list(D[nodes_i[a]]), "c": fit_seg(nodes_i[a], nodes_i[b])})
     # thumb slit: from the lower lip at Ps inward to the dot, back to the upper lip
     Ps, Ps2 = D[nodes_i["t_Ps"]], D[nodes_i["t_Ps2"]]
-    dtpl = (0.19 * ksc, -0.54 * ksc)                     # dot of the template
+    dot = shape["marks"]["dot"]["p"]
+    dtpl = (dot[0] * ksc, -dot[1] * ksc)                 # dot of the template
     # end of the thumb slit: both lips match the trank slit lips (circles round Ps and Ps2), on the dot's side
     r1, r2 = slit_target, hl["h_D"] * ease
     dd = dist(Ps, Ps2)
@@ -1019,6 +1213,8 @@ def mirror_piece(p, name):
         out["holes"] = [dict(hl, outline=mir(hl["outline"])) for hl in p["holes"]]
     if p.get("grain"):
         out["grain"] = [[-g[0], g[1]] for g in p["grain"]]
+    if p.get("lines"):
+        out["lines"] = [[[-q[0], q[1]] for q in ln] for ln in p["lines"]]
     return out
 
 
@@ -1054,22 +1250,26 @@ def slit_holes(piece, gap=0.15):
 BLOCKS = ("skirt", "bodice", "sleeve", "trousers")
 
 
-def build(block, m, a, body):
+def build(block, m, a, body, knit=False, circle=None):
     res = {"pieces": [], "checks": []}
     wanted = BLOCKS if block == "all" else (block,)
-    bodice = block_bodice(m, a, body) if ("bodice" in wanted or "sleeve" in wanted) else None
+    bodice = block_bodice(m, a, body, knit) if ("bodice" in wanted or "sleeve" in wanted) else None
     for b in wanted:
         r = {"skirt": lambda: block_skirt(m, a, body), "bodice": lambda: bodice,
-             "sleeve": lambda: block_sleeve(m, a, body, bodice), "trousers": lambda: block_trousers(m, a, body)}[b]()
+             "sleeve": lambda: block_sleeve(m, a, body, bodice), "trousers": lambda: block_trousers(m, a, body),
+             "circle_skirt": lambda: block_circle_skirt(m, a, **(circle or {}))}[b]()
         res["pieces"] += r["pieces"]
         res["checks"] += r["checks"]
+        res.setdefault("seams", []).extend(r.get("seams", []))
+        if r.get("knots"):
+            res.setdefault("knots", {}).update(r["knots"])
     return res
 
 # ------------------------------------------------------------------ export
 
 
-def layout(pieces_per_size):
-    """Place each piece (same rank for every size) on rows of 1.5 m at most, in mm."""
+def layout(pieces_per_size, width=1500):
+    """Place each piece (same rank for every size) on rows of `width` mm at most (1.5 m, a fabric width)."""
     boxes = []
     for i in range(len(pieces_per_size[0])):
         pts = [q for ps in pieces_per_size for q in cut_line(ps[i])]
@@ -1077,7 +1277,7 @@ def layout(pieces_per_size):
     offs, x, y, h, wid = [], 10.0, 15.0, 0.0, 0.0
     for b in boxes:
         w, hh = (b[2] - b[0]) * 10, (b[3] - b[1]) * 10
-        if x > 10 and x + w > 1500:
+        if x > 10 and x + w > width:
             x, y, h = 10.0, y + h + 20, 0.0
         offs.append((x - b[0] * 10, y - b[1] * 10))
         x += w + 20
@@ -1195,11 +1395,22 @@ def write_clo3d(pieces, offs, path, size, seams=None, holds=None):
     """Net outline (CLO3D adds its own allowances), fold pieces unfolded, y upwards, in mm.
     Each piece keeps its edge names: CLO3D line i is edge i of the `edges` list."""
     out = {"unit": "mm", "size": str(size), "pieces": []}
-    for p, off in zip(pieces, offs):
-        q = slit_holes(unfold(p))
-        out["pieces"].append({"name": p["name"], "cut": q.get("cut", ""), "points": clo3d_points(q, off),
-                              "edges": [{"line": i, "from": n.get("name", ""), "length_mm": round(length(edge(q, i)) * 10, 1)}
-                                        for i, n in enumerate(q["outline"])]})
+    shells = [slit_holes(unfold(p)) for p in pieces]
+    offs, _, _ = layout([shells], 2800)      # laid out unfolded (the half pieces would overlap once unfolded)
+    xs = [x for q, off in zip(shells, offs) for x, _ in (mm(n["p"], off) for n in q["outline"])]
+    ys = [y for q, off in zip(shells, offs) for _, y in (mm(n["p"], off) for n in q["outline"])]
+    cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2   # centred on the 2D origin: CLO3D places a new
+    offs = [(o[0] - cx, o[1] - cy) for o in offs]                 # piece in 3D from its 2D position
+    for p, q, off in zip(pieces, shells, offs):
+        rec = {"name": p["name"], "cut": q.get("cut", ""), "points": clo3d_points(q, off),
+               "edges": [{"line": i, "from": n.get("name", ""), "length_mm": round(length(edge(q, i)) * 10, 1)}
+                         for i, n in enumerate(q["outline"])]}
+        for k in ("fabric", "particle_distance", "layer", "arrange"):   # read by build_garment (clo3d-mcp-extended)
+            if p.get(k) is not None:
+                rec[k] = p[k]
+        if q.get("lines"):                   # internal lines (roll line, pocket opening), drawn in CLO3D
+            rec["internals"] = [[[round(x, 2), round(-y, 2)] for x, y in (mm(pt, off) for pt in ln)] for ln in q["lines"]]
+        out["pieces"].append(rec)
     if seams:
         out["seams"] = seams                 # [piece A, a1, a2, piece B, b1, b2, {"ease": r, "why": ...}]: a1 to b1
     if holds:                                # overlapping fronts: top edge sewn onto an internal line of the under piece
@@ -1381,12 +1592,18 @@ def expand_mirrors(pieces, seams):
     """Pieces with "mirror": true become "<name> L" and its mirror "<name> R"; seams naming "{side}" are
     written once per side."""
     out = []
+    opp = {"L": "R", "R": "L"}
     for p in pieces:
         if p.get("mirror"):
-            base = {k: v for k, v in p.items() if k != "mirror"}
-            out += [dict(base, name=p["name"] + " L"), mirror_piece(base, p["name"] + " R")]
+            base = {k: v for k, v in p.items() if k not in ("mirror", "wearer")}
+            for suffix, q in (("L", dict(base, name=p["name"] + " L")), ("R", mirror_piece(base, p["name"] + " R"))):
+                if "{side}" in str(q.get("arrange", {}).get("name", "")):
+                    # the original half is the wearer's left (x towards the side), except for back pieces
+                    w = suffix if p.get("wearer", "left") != "right" else opp[suffix]
+                    q["arrange"] = dict(q["arrange"], name=q["arrange"]["name"].replace("{side}", w))
+                out.append(q)
         else:
-            out.append(p)
+            out.append({k: v for k, v in p.items() if k != "wearer"})
     exp = []
     for s_ in seams or []:
         if any("{side}" in str(x) for x in s_[:6]):
@@ -1435,7 +1652,7 @@ def export(sets, out, title, allowance=None):
     offs, _, _ = layout([r["pieces"] for _, r in sets])
     for sz, r in sets:
         write_dxf(r["pieces"], offs, os.path.join(out, f"pattern_{sz}.dxf"), sz)
-        cloj = write_clo3d(r["pieces"], offs, os.path.join(out, f"clo3d_{sz}.json"), sz, r.get("seams"), r.get("holds"))
+        cloj = write_clo3d(r["pieces"], None, os.path.join(out, f"clo3d_{sz}.json"), sz, r.get("seams"), r.get("holds"))
         checks = r.setdefault("checks", [])
         for p in r["pieces"]:
             checks += fold_checks(p)
@@ -1538,42 +1755,42 @@ def _fold_text(t):
 
 
 def kb_entries():
-    """List of entries: id, name, file, line, aliases, family, text."""
-    import re
+    """List of entries: id, name, file, line, aliases, family, status, text. Knowledge-base entries are one file
+    each (references/kb/<family>/<id>.md); the technique sheets are indexed by their headings."""
     out = []
+    root = _kb_root()
+    paths = []
     for sub in KB_DIRS:
-        folder = os.path.join(_kb_root(), sub)
-        if not os.path.isdir(folder):
-            continue
-        for fn in sorted(os.listdir(folder)):
-            if not fn.endswith(".md") or fn in ("FORMAT.md", "INDEX.md"):
-                continue
-            path = os.path.join(folder, fn)
-            with open(path, encoding="utf-8") as f:
-                lines = f.read().split("\n")
-            cur = None
-            for i, line in enumerate(lines):
-                m = re.match(r"^(#{2,3})\s+(.*?)\s*(\{#([a-z0-9\-]+)\})?\s*$", line)
-                if m and not line.startswith("####"):
-                    if cur:
-                        out.append(cur)
-                    name, eid = m.group(2).strip(), m.group(4)
-                    if name.lower() == "sources":
-                        cur = None
-                        continue
-                    slug = re.sub(r"[^a-z0-9]+", "-", _fold_text(re.sub(r"^[A-Z]?[0-9.]+\s+", "", name))).strip("-")[:48]
-                    cur = {"id": eid or slug, "name": name, "file": f"{sub}/{fn}",
-                           "line": i + 1, "aliases": "", "family": "", "text": [], "kb": eid is not None}
+        for base, dirs, names in os.walk(os.path.join(root, sub)):
+            dirs.sort()
+            paths += [os.path.join(base, n) for n in sorted(names) if n.endswith(".md") and n == n.lower()]
+    for path in paths:
+        rel = os.path.relpath(path, root).replace("\\", "/")
+        entry_file = rel.startswith("kb/") and rel.count("/") == 2          # kb/<family>/<id>.md
+        with open(path, encoding="utf-8") as f:
+            lines = f.read().split("\n")
+        cur = None
+        for i, line in enumerate(lines):
+            m = re.match(r"^(#{1,3})\s+(.*?)\s*(\{#([a-z0-9\-]+)\})?\s*$", line)
+            if m and (len(m.group(1)) > 1 or (entry_file and m.group(4))):
+                if cur:
+                    out.append(cur)
+                name, eid = m.group(2).strip(), m.group(4)
+                if name.lower() == "sources":
+                    cur = None
                     continue
-                if cur is not None:
-                    cur["text"].append(line)
-                    low = line.lower()
-                    if low.startswith("- **aliases**"):
-                        cur["aliases"] = line.split(":", 1)[-1].strip()
-                    elif low.startswith("- **family**"):
-                        cur["family"] = line.split(":", 1)[-1].strip()
-            if cur:
-                out.append(cur)
+                slug = re.sub(r"[^a-z0-9]+", "-", _fold_text(re.sub(r"^[A-Z]?[0-9.]+\s+", "", name))).strip("-")[:48]
+                cur = {"id": eid or slug, "name": name, "file": rel, "line": i + 1, "aliases": "", "family": "",
+                       "status": "", "text": [], "kb": eid is not None}
+                continue
+            if cur is not None:
+                cur["text"].append(line)
+                low = line.lower()
+                for key in ("aliases", "family", "status"):
+                    if low.startswith(f"- **{key}**"):
+                        cur[key] = line.split(":", 1)[-1].strip()
+        if cur:
+            out.append(cur)
     return out
 
 
@@ -1601,7 +1818,7 @@ def cmd_kb(args):
     if args.action == "search":
         res = kb_search(" ".join(args.words))
         if not res:
-            print("No entry found. Look up published patterns and books, then add an entry (references/kb/FORMAT.md).")
+            print("No entry found. Look up published patterns and books, then add an entry (references/kb/FORMAT.md, CONTRIBUTING.md).")
             return 1
         for e in res:
             print(f"{e['id']:<34} {e['name'][:48]:<48} {e['file']}:{e['line']}")
@@ -1611,94 +1828,100 @@ def cmd_kb(args):
         e = next((x for x in kb_entries() if x["id"] == target), None) or next(iter(kb_search(target, 1)), None)
         if not e:
             raise SystemExit(f"No entry: {target}")
-        print(f"## {e['name']}  ({e['file']}:{e['line']})")
+        print(f"## {e['name']}  (references/{e['file']})")
         print("\n".join(e["text"]).strip())
         return 0
-    entries = [e for e in kb_entries() if e["kb"]]
-    by_file = {}
-    for e in entries:
-        by_file.setdefault(e["file"], []).append(e)
-    lines = ["# Knowledge base index", "", f"{len(entries)} entries. Search: `python scripts/pattern.py kb search <words>`;",
-             "full entry: `python scripts/pattern.py kb show <id>`. Format: `FORMAT.md`.", ""]
-    for fn, es in by_file.items():
-        lines += [f"## {fn}", ""]
-        lines += [f"- `{e['id']}`: {e['name']}" + (f" ({e['aliases'][:80]})" if e["aliases"] else "") for e in es]
-        lines.append("")
-    path = os.path.join(_kb_root(), "kb", "INDEX.md")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines))
-    ids = [e["id"] for e in entries]
-    dup = sorted({i for i in ids if ids.count(i) > 1})
-    print(f"{len(entries)} entries indexed in {path}" + (f"; duplicate ids: {', '.join(dup)}" if dup else ""))
-    return 0
+    return library.cmd_check(argparse.Namespace(write=True))         # "kb index": regenerate the index and friends
+
+
+def _views(d, folder, tag, views=((2, "front"), (4, "side"))):
+    out = []
+    for vi, nm in views:
+        path = os.path.join(folder, f"{tag}_{nm}.png")
+        clo3d_command(d, "set_camera_view", {"view_index": vi, "zoom_to_garment": False})
+        clo3d_command(d, "export_view_image", {"view_index": vi, "output_path": path, "width": 600, "height": 900})
+        out.append(path)
+    return out
 
 
 def cmd_clo3d(args):
+    """Build the garment of a clo3d_<size>.json in CLO3D in one plugin call (build_garment of clo3d-mcp-extended):
+    pieces, collision thickness 0, mesh, fabric by role, arrangement by point name, seams, wrap holds. Then read
+    the line lengths back, capture the views, optionally simulate and show the fit maps, and save."""
     d = args.dir or os.environ.get("CLO3D_MCP_DIR") or os.path.join(
         os.environ.get("TEMP", tempfile.gettempdir()), "clo3d_mcp")
     if not os.path.isdir(d):
         raise SystemExit(f"Exchange folder not found: {d}. Start the plugin in CLO3D.")
     with open(args.file, encoding="utf-8") as f:
         data = json.load(f)
-    clo3d_command(d, "ping", {}, 10)
-    arrange = {}
-    if args.arrange:
+    if args.arrange:                       # {piece: index | "Point_Name" | {"point": i, "name": s, "orientation": deg}}
         with open(args.arrange, encoding="utf-8") as f:
-            arrange = json.load(f)
-    n0 = clo3d_command(d, "get_pattern_count", {}).get("count", 0)
-    idx = {}
-    for i, p in enumerate(data["pieces"]):
-        k = n0 + i
-        clo3d_command(d, "create_pattern", {"points": p["points"]})
-        clo3d_command(d, "set_pattern_name", {"pattern_index": k, "name": p["name"]})
-        idx[p["name"]] = k
-        if args.assemble:
-            clo3d_command(d, "set_collision_thickness", {"pattern_index": k, "thickness": 0})  # fabrics have one
-            if args.fabric is not None:
-                clo3d_command(d, "set_pattern_fabric", {"pattern_index": k, "fabric_index": args.fabric})
-            if args.mesh is not None:
-                clo3d_command(d, "set_particle_distance", {"pattern_index": k, "distance": args.mesh})
-            if p["name"] in arrange:                       # point index, or {"point": i, "orientation": deg}
-                ar = arrange[p["name"]]
-                ar = ar if isinstance(ar, dict) else {"point": ar}
-                params = {"pattern_index": k, "arrangement_index": ar["point"]}
-                if ar.get("orientation") is not None:
-                    params["orientation"] = ar["orientation"]
-                clo3d_command(d, "arrange_pattern", params)
-        print(f"{p['name']}: created in CLO3D ({p.get('cut', '')})", flush=True)
-    if args.assemble:
-        pieces = {p["name"]: p for p in data["pieces"]}
-        failed = 0
-        for s_ in data.get("seams", []):
-            if s_[0] not in pieces or s_[3] not in pieces:
-                continue
-            (la, sa), (lb, sb) = _clo_edge(pieces[s_[0]], s_[1], s_[2]), _clo_edge(pieces[s_[3]], s_[4], s_[5])
-            try:
-                clo3d_command(d, "sew", {"pattern_a": idx[s_[0]], "line_a": la, "pattern_b": idx[s_[3]], "line_b": lb,
-                                         "direction_a": sa, "direction_b": sb})
-            except SystemExit as err:
-                failed += 1
-                print("seam failed:", s_, err, flush=True)
-        for h in data.get("holds", []):     # wrap: the top front's edge onto an internal line of the under front
-            if h["top"] not in pieces or h["under"] not in pieces:
-                continue
-            line, fwd = _clo_edge(pieces[h["top"]], h["edge"][0], h["edge"][1])
-            a, b = (h["edge"][0], h["edge"][1]) if fwd else (h["edge"][1], h["edge"][0])
-            ch = clo3d_command(d, "create_internal_shape", {"pattern_index": idx[h["under"]],
-                                                            "points": [h["at"][a], h["at"][b]], "closed": False})
-            try:
-                clo3d_command(d, "sew", {"pattern_a": idx[h["top"]], "line_a": line, "pattern_b": idx[h["under"]],
-                                         "line_b": 0, "child_b": ch["child_index"], "direction_a": True, "direction_b": True})
-                if h.get("layer"):
-                    clo3d_command(d, "set_pattern_state", {"pattern_index": idx[h["top"]], "layer": h["layer"]})
-            except SystemExit as err:
-                failed += 1
-                print("hold failed:", h["top"], err, flush=True)
-        print(f"{len(data.get('seams', [])) - failed} seams sewn, {failed} failed. Pieces without an arrangement "
-              "point must be placed by hand in CLO3D before simulating.", flush=True)
+            for name, v in json.load(f).items():
+                for p in data["pieces"]:
+                    if p["name"] == name:
+                        ar = v if isinstance(v, dict) else {"index": v} if isinstance(v, int) else {"name": v}
+                        if "point" in ar:
+                            ar = dict(ar, index=ar.pop("point"))
+                        p["arrange"] = ar
+    if args.pieces_only:
+        data.pop("seams", None)
+        data.pop("holds", None)
+        for p in data["pieces"]:
+            p.pop("arrange", None)
+    fabrics = {}
+    for item in (args.fabrics.split(",") if args.fabrics else []):
+        role, _, val = item.partition("=")
+        if not val:
+            role, val = "*", role
+        fabrics[role.strip()] = int(val) if val.strip().isdigit() else val.strip()
+    if args.fabric is not None:
+        fabrics.setdefault("*", args.fabric)
+    clo3d_command(d, "ping", {}, 10)
+    print("Before sending: the simulation must be stopped in CLO3D (a running simulation while pieces are "
+          "created has crashed CLO3D).", flush=True)
+    if args.save:
+        before = os.path.splitext(args.save)[0] + "_before.zprj"
+        clo3d_command(d, "save_project", {"file_path": before})
+        print(f"Project saved before the build: {before}", flush=True)
+    res = clo3d_command(d, "build_garment", {"garment": data, "fabrics": fabrics or None, "collision_thickness": 0,
+                                             "particle_distance": args.mesh, "arrange": not args.pieces_only}, timeout=900)
+    bad = 0
+    for p in res["pieces"]:
+        dev = p.get("max_deviation_mm")
+        flag = "!!" if dev is not None and dev > 1.0 else "OK"
+        bad += flag == "!!"
+        print(f" {flag} {p['name']}: index {p['index']}, {p.get('lines', '?')} lines, max deviation "
+              f"{dev if dev is not None else '?'} mm, placed on {p.get('arranged') or '-'}", flush=True)
+    print(f"{res['seams_sewn']} seams sewn, {len(res['seams_failed'])} failed; {res['holds_sewn']} holds, "
+          f"{len(res['holds_failed'])} failed.", flush=True)
+    for x in res["seams_failed"] + res["holds_failed"]:
+        print(" !! failed:", x, flush=True)
+    for w in res.get("warnings", []):
+        print(" !! " + w, flush=True)
+    if res.get("unplaced"):
+        print("Not placed (no arrangement point): " + ", ".join(res["unplaced"]) +
+              ". Place them by hand in CLO3D before simulating.", flush=True)
+    if args.snapshots:
+        os.makedirs(args.snapshots, exist_ok=True)
+        clo3d_command(d, "export_snapshot_2d", {"output_path": os.path.join(args.snapshots, "patterns_2d.png")})
+        print("Views before simulation:", ", ".join(_views(d, args.snapshots, "arranged")), flush=True)
+    if args.save:
+        clo3d_command(d, "save_project", {"file_path": args.save})
+        print(f"Project saved: {args.save}", flush=True)
+    if args.simulate:
+        clo3d_command(d, "simulate", {"steps": args.simulate}, timeout=900)
+        if args.snapshots:
+            files = _views(d, args.snapshots, "simulated", ((2, "front"), (4, "side"), (8, "back")))
+            clo3d_command(d, "set_fit_maps", {"stress": True})
+            files += _views(d, args.snapshots, "stress", ((2, "front"), (8, "back")))
+            clo3d_command(d, "set_fit_maps", {"stress": False})
+            print("Views after simulation:", ", ".join(files), flush=True)
+        if args.save:
+            clo3d_command(d, "save_project", {"file_path": args.save})
+            print(f"Project saved after simulation: {args.save}", flush=True)
     if args.stop:
         clo3d_command(d, "stop", {}, 10)
-    return 0
+    return 0 if not bad and not res["seams_failed"] else 2
 
 # ------------------------------------------------------------------ command line
 
@@ -1709,7 +1932,11 @@ def load_measurements(args):
         with open(args.measurements, encoding="utf-8") as f:
             own = json.load(f)
     body = own.pop("body", None) or args.body
-    return body, own, {**EASE[body], **own.pop("ease", {})}
+    a = standard_ease(body)
+    if getattr(args, "knit", False):           # medium-stretch knit (references/ease.md): negative ease, no cap ease
+        a.update({"bust": -4, "bodice_waist": -4, "sleeve_cap": 0, "wrist": 2, "shoulder": 0})
+    a.update(own.pop("ease", {}))
+    return body, own, a
 
 
 def cmd_glove(args):
@@ -1726,7 +1953,14 @@ def cmd_glove(args):
         if args.end_girth is not None:
             h["end_girth"] = args.end_girth * 10
         left = block_glove(h)
+        for p in left["pieces"]:               # fingers up as on real patterns: orientation 0 on the arm points
+            p["fabric"] = "shell"
+            p["particle_distance"] = 4 if p["name"].startswith("Fourchette") else 6
+            p["arrange"] = arrange_for(p["name"]) or {"name": "Arm_Inside_3_{side}", "orientation": 0}
         right = [mirror_piece(p, "Glove R " + p["name"]) for p in left["pieces"]]
+        for side, group in (("L", left["pieces"]), ("R", right)):
+            for p in group:
+                p["arrange"] = dict(p["arrange"], name=p["arrange"]["name"].replace("{side}", side))
         for p in left["pieces"]:
             p["name"] = "Glove L " + p["name"]
         seams = [[f"Glove {side} {a[0]}", a[1], a[2], f"Glove {side} {a[3]}", a[4], a[5]] + list(a[6:])
@@ -1742,7 +1976,7 @@ def cmd_block(args):
     if args.block == "glove":
         return cmd_glove(args)
     body, own, a = load_measurements(args)
-    default = "8" if body == "children" else str(BASE[body]["ref"])
+    default = str(library.reference_size(body))
     sizes = args.sizes.split(",") if args.sizes else [args.size or default]
     sets = []
     for i, sz in enumerate(sizes):
@@ -1752,10 +1986,20 @@ def cmd_block(args):
             missing = sorted(set(std) - set(own))
             if missing:
                 print("Measurements taken from the standard table:", ", ".join(missing))
-        sets.append((sz, build(args.block, m, a, body)))
-    export(sets, args.out, f"{args.block} {body}", args.allowance)
+        if args.sleeve_length is not None:
+            m["arm_length"] = args.sleeve_length
+        if args.sleeve_hem is not None:
+            a = dict(a, wrist=args.sleeve_hem - m["wrist"])
+        circle = {"fullness": args.fullness, "panels": args.panels, "length_cm": args.length} if args.block == "circle_skirt" else None
+        sets.append((sz, build(args.block, m, a, body, args.knit, circle)))
+    title = f"{args.block} {body}" + (" knit" if args.knit else "")
+    export(sets, args.out, title, args.allowance)
     ok = report(sets)
-    print(f"\nFiles written to {os.path.abspath(args.out)}")
+    shells = [(sz, shell_from_blocks(r, args.knit)) for sz, r in sets]
+    export(shells, os.path.join(args.out, "clo3d"), title + " (3D shell)")
+    print("\n== 3D shell (clo3d/)")
+    ok &= report(shells)
+    print(f"\nFiles written to {os.path.abspath(args.out)} (3D shell with seams in {os.path.join(args.out, 'clo3d')})")
     return 0 if ok else 2
 
 
@@ -1809,10 +2053,13 @@ def cmd_piece(args):
     if isinstance(data, list):
         data = {"pieces": data}
     for p in data["pieces"]:
+        if p.get("band"):
+            continue
         if len(p.get("outline", [])) < 3 or not all(len(n.get("p", [])) == 2 for n in p["outline"]):
             raise SystemExit(f"Invalid piece: {p.get('name', '?')} (at least 3 nodes with \"p\": [x, y])")
     sz = str(data.get("size", "one"))
-    sets = [(sz, {"pieces": data["pieces"], "checks": [], "seams": data.get("seams", [])})]
+    pieces, seams = expand_bands(data["pieces"], list(data.get("seams", [])))
+    sets = [(sz, {"pieces": pieces, "checks": [], "seams": seams})]
     export(sets, args.out, data.get("title", "pattern"), args.allowance)
     ok = report(sets)
     for p in sets[0][1]["pieces"]:
@@ -1824,7 +2071,7 @@ def cmd_piece(args):
 def test():
     for body, sizes in (("women", ["34", "38", "46"]), ("men", ["44", "48", "56"]), ("children", ["4", "8", "14"])):
         for sz in sizes:
-            res = build("all", complete(standard_measurements(body, sz), body), EASE[body], body)
+            res = build("all", complete(standard_measurements(body, sz), body), standard_ease(body), body)
             for c in res["checks"]:
                 assert c["expected"] is None or abs(c["value"] - c["expected"]) <= c["tol"], (body, sz, c)
             for p in res["pieces"]:
@@ -1836,7 +2083,7 @@ def test():
                     assert abs(abs(area(outline(d))) - 2 * abs(area(net))) < 0.01 * abs(area(net)), (p["name"], "unfold")
                 assert len(notches(d)) == len(notches(p)) * (2 if p.get("fold") else 1)
     # pivot: A-line skirt (darts closed towards the hem) and bust dart transferred to the shoulder
-    m, a = complete(standard_measurements("women", 38), "women"), EASE["women"]
+    m, a = complete(standard_measurements("women", 38), "women"), standard_ease("women")
     sf = block_skirt(m, a, "women")["pieces"][0]
     al = sf
     for dn in [n["name"] for n in sf["outline"] if n.get("dart")]:
@@ -1874,11 +2121,11 @@ def test():
     assert len(notches(tr)) == len(notches(fr))
     fl = pivot(sf, "center_waist", ("direction", 0, 1), angle=5, flare=True)
     assert abs(area(outline(fl))) > abs(area(outline(sf)))
-    h = [block_skirt(complete(standard_measurements("women", t), "women"), EASE["women"], "women")["pieces"][0]["outline"][-3]["p"][0]
+    h = [block_skirt(complete(standard_measurements("women", t), "women"), standard_ease("women"), "women")["pieces"][0]["outline"][-3]["p"][0]
          for t in (36, 38, 40)]
     assert h[0] < h[1] < h[2], "grading"
     with tempfile.TemporaryDirectory() as d:
-        sets = [(t, build("all", complete(standard_measurements("women", t), "women"), EASE["women"], "women"))
+        sets = [(t, build("all", complete(standard_measurements("women", t), "women"), standard_ease("women"), "women"))
                 for t in ("36", "38")]
         export(sets, d, "test")
         assert len(os.listdir(d)) == 9
@@ -1951,6 +2198,66 @@ def test():
     gr = tr_["grain"]
     ys_ = [n["p"][1] for n in tr_["outline"]]
     assert all(min(ys_) <= g[1] <= max(ys_) for g in gr), ("grain line outside the trank", gr)
+    # data library: every shipped file is valid; a contributed size chart drafts; broken files are named in words
+    for kind, i, path in library.files():
+        with open(path, encoding="utf-8") as f:
+            assert library.validate(kind, i, json.load(f)) == [], (kind, i, library.validate(kind, i, json.load(open(path, encoding="utf-8"))))
+    eu = library.load("measurements", "standard-eu")
+    chart = {"id": "t-chart", "kind": "measurements", "title": "t", "unit": "cm",
+             "bodies": {"women": {"reference_size": "M", "sizes": {"S": standard_measurements("women", 36), "M": standard_measurements("women", 40)}}},
+             "provenance": {"source": "test", "rights": "test", "confidence": "practice", "extraction": {"method": "transcribed"}}}
+    library._cache[("measurements", "t-chart")] = chart
+    assert standard_measurements("women", "S", "t-chart")["bust"] == 84 and standard_measurements("women", None, "t-chart")["bust"] == 92
+    assert library.validate("measurements", "t-chart", chart) == []
+    assert library.ease("women", "t-chart") == eu["ease"]["women"], "a table without ease uses the default ease"
+    bad = json.loads(json.dumps(chart))
+    bad["bodies"]["women"]["sizes"]["S"]["waist"] = 140                     # larger than the hip: the blocks must refuse it
+    bad["provenance"]["confidence"] = "sure"
+    library._cache[("measurements", "t-chart")] = bad
+    msgs = library.validate("measurements", "t-chart", bad)
+    assert any("confidence" in x for x in msgs) and any("size S" in x for x in msgs), msgs
+    del library._cache[("measurements", "t-chart")]
+    sq = [{"p": [0, 0], "name": "tl", "corner": True}, {"p": [4, 0], "name": "tr", "corner": True}, {"p": [4, 3], "name": "br"},
+          {"p": [0, 3], "name": "low", "corner": True}]
+    nd = library.smooth_nodes(sq)
+    assert "c" not in nd[0] and "c" in nd[1] and nd[3]["name"] == "low", nd
+    shp = {"id": "t-shape", "kind": "shape", "title": "t", "unit": "cm", "reference": {"w": 4}, "scale": {"measure": "w"},
+           "outlines": {"o": {"type": "other", "points": sq, "edges": {"hem": [["tl", "tr"]], "applied": [["tr", "br"], ["br", "low"], ["low", "tl"]]}}},
+           "provenance": {"source": "t", "rights": "t", "confidence": "measured",
+                                                              "extraction": {"method": "ruler", "line": "seam", "deviation_mm": 1.0}}}
+    assert library.validate("shape", "t-shape", shp) == []
+    far = json.loads(json.dumps(shp))
+    far["provenance"]["extraction"]["deviation_mm"] = 3.5                 # more than 2 mm off its paper: digitise again
+    assert any("digitise again" in x for x in library.validate("shape", "t-shape", far))
+    far["provenance"]["extraction"] = {"method": "diagram", "line": "seam", "deviation_mm": None}
+    assert any("measured" in x for x in library.validate("shape", "t-shape", far)), "a diagram is not a measured shape"
+    assert "<polygon" in library.preview_svg(library.shape_pieces(shp), "t") and library._same("a 1.04 b", "a 1.05 b")
+    assert not library._same("a 1.0 b", "a 1.3 b") and not library._same("a 1.0 b", "c 1.0 b")
+    assert abs(library.shape_pieces(shp, {"w": 8})[0]["outline"][1]["p"][0] - 8) < 1e-9, "a shape scales by its measure"
+    loose = json.loads(json.dumps(shp))
+    del loose["outlines"]["o"]["edges"]["hem"]                           # an edge nobody accounts for: the pattern is incomplete
+    assert any("tl..tr is not accounted for" in x for x in library.validate("shape", "t-shape", loose))
+    # the analysis measures the engine's own blocks and finds the ease they were drafted with
+    mw = complete(standard_measurements("women", 38), "women")
+    tp = {"Bodice back": "bodice_back", "Bodice front": "bodice_front", "Sleeve": "sleeve"}
+    blk = {"id": "t-blk", "unit": "cm", "reference": mw, "outlines": {
+        x["name"]: {"type": tp[x["name"]], "nodes": x["outline"]} for x in build("all", mw, standard_ease("women"), "women")["pieces"] if x["name"] in tp}}
+    an = library.analyze(blk)
+    gm = {g["name"]: g for g in an["garment"]}
+    assert abs(gm["finished_bust"]["ease"] - standard_ease("women")["bust"]) < 0.01, gm["finished_bust"]
+    assert abs(gm["cap_ease"]["value"] - standard_ease("women")["sleeve_cap"]) < 0.2, gm["cap_ease"]
+    assert [d_["name"] for d_ in an["pieces"]["Bodice back"]["darts"]] == ["dart"]
+    blk["outlines"]["Sleeve"]["nodes"] = [dict(x, name="top") if x["name"] == "cap" else x for x in blk["outlines"]["Sleeve"]["nodes"]]
+    assert any("points to name: cap" in x for x in library.analyze(blk)["problems"]), "a typed piece needs its standard points"
+    bow = dict(shp, outlines={"o": {"points": [{"p": [0, 0]}, {"p": [4, 3.4]}, {"p": [4, 0]}, {"p": [0, 3]}]}})
+    assert any("crosses itself" in x for x in library.validate("shape", "t-shape", bow)), "a bow-tie outline must be refused"
+    assert any("TODO" in x for x in library.validate("shape", "t-shape", dict(shp, title="TODO: name it")))
+    pn = library._path_nodes("M 0,0 C 1,-1 3,-1 4,0 l 0,3 h -4 z")
+    assert len(pn) == 4 and "c" in pn[0] and pn[3]["p"] == [0.0, 3.0], pn
+    typ, vals = library.preset("shirt-collar", "collar")
+    assert typ == "shirt" and vals["point"] == 7.0
+    assert garment.merged({"collar": {"preset": "shirt-collar", "point": 9}})["collar"] == dict(vals, type="shirt", point=9)
+    assert arrange_for("Fourchette I (IM)")["orientation"] == 0 and arrange_for("no such piece") is None
     print("All tests pass.")
     return 0
 
@@ -1963,18 +2270,27 @@ def main():
     for name in ("block", "measurements"):
         p = sp.add_parser(name)
         if name == "block":
-            p.add_argument("block", choices=BLOCKS + ("all", "glove"))
-            p.add_argument("--length", type=float, help="glove: end of the glove below the wrist crease, cm")
+            p.add_argument("block", choices=BLOCKS + ("all", "glove", "circle_skirt"))
+            p.add_argument("--length", type=float, help="glove: end below the wrist crease; circle_skirt: skirt length, cm")
+            p.add_argument("--knit", action="store_true", help="bodice and sleeve for a knit: no darts, negative ease, no cap ease, 8 mm mesh")
+            p.add_argument("--sleeve-length", type=float, help="sleeve length in cm (default: arm length)")
+            p.add_argument("--sleeve-hem", type=float, help="finished sleeve hem circumference in cm")
+            p.add_argument("--fullness", type=float, default=1.0, help="circle_skirt: 1 full, 0.5 half, 0.25 quarter")
+            p.add_argument("--panels", type=int, default=2, help="circle_skirt: number of panels (2: front and back)")
             p.add_argument("--end-girth", type=float, help="glove: arm girth at the end of the glove, cm")
             p.add_argument("--out", default="pattern_out")
             p.add_argument("--sizes", help="list for grading, e.g. 36,38,40")
             p.add_argument("--allowance", type=float, help="default seam allowance in cm (hems unchanged)")
         p.add_argument("--body", choices=("women", "men", "children"), default="women")
+        p.add_argument("--table", help="measurement table of data/measurements/ (default: standard-eu); `data list` shows them")
+        p.add_argument("--avatar", help="avatar file of data/avatars/ for the arrangement points of the 3D shell")
         p.add_argument("--size", help="standard size (women 34-48, men 44-58, children: age 4-14; glove: 6 to 10)")
         p.add_argument("--measurements", help="JSON file of personal measurements in cm")
     p = sp.add_parser("garment", help="draft a whole garment from a spec (references/garment-spec.md)")
     p.add_argument("spec")
     p.add_argument("--out", default="garment_out")
+    p.add_argument("--table", help="measurement table of data/measurements/ (the spec's \"table\" key wins)")
+    p.add_argument("--avatar", help="avatar file of data/avatars/ (the spec's \"avatar\" key wins)")
     p = sp.add_parser("piece")
     p.add_argument("file")
     p.add_argument("--out", default="pattern_out")
@@ -1997,19 +2313,67 @@ def main():
     p.add_argument("--from", dest="start", required=True, help="start node")
     p.add_argument("--to", dest="end", required=True, help="end node, following the outline")
     p.add_argument("--output")
-    p = sp.add_parser("clo3d", help="send a clo3d_<size>.json file to the CLO3D plugin")
+    p = sp.add_parser("clo3d", help="build a clo3d_<size>.json garment in CLO3D through the plugin (one call)")
     p.add_argument("file")
     p.add_argument("--dir", help="plugin exchange folder (default: %%TEMP%%/clo3d_mcp)")
     p.add_argument("--stop", action="store_true", help="stop the plugin listener after sending")
-    p.add_argument("--assemble", action="store_true", help="also sew the seams of the file, collision thickness 0")
-    p.add_argument("--fabric", type=int, help="fabric index for every piece")
-    p.add_argument("--mesh", type=float, help="mesh size in mm for every piece (8 fitted knits, 4 to 6 gloves)")
-    p.add_argument("--arrange", help="JSON file {piece name: point index or {\"point\": i, \"orientation\": deg}}")
+    p.add_argument("--assemble", action="store_true", help="kept for compatibility: seams and arrangement are the default")
+    p.add_argument("--pieces-only", action="store_true", help="create the pieces only: no seams, no arrangement")
+    p.add_argument("--fabrics", help="fabric per role: shell=2,lining=Cotton,*=0 (index or name of a project fabric)")
+    p.add_argument("--fabric", type=int, help="fabric index for pieces without a role (same as --fabrics *=i)")
+    p.add_argument("--mesh", type=float, help="mesh size in mm for pieces without their own (8 fitted knits, 4 to 6 gloves)")
+    p.add_argument("--arrange", help="JSON file {piece name: point index, \"Point_Name\" or {\"name\": s, \"orientation\": deg}}")
+    p.add_argument("--snapshots", help="folder for the 2D capture and the front and side views, before and after simulation")
+    p.add_argument("--simulate", type=int, help="run this many simulation steps, then export the views and stress map")
+    p.add_argument("--save", help=".zprj path: the project is saved before the build, after it, and after simulation")
+    p = sp.add_parser("template", help="template bank: list, show <id>, draft <id> --param k=v --out folder")
+    p.add_argument("action", choices=("list", "show", "draft"))
+    p.add_argument("id", nargs="?")
+    p.add_argument("--param", action="append", help="k=v, repeatable (see `show`)")
+    p.add_argument("--out", default="template_out")
     p = sp.add_parser("kb", help="knowledge base: search <words>, show <id>, index")
     p.add_argument("action", choices=("search", "show", "index"))
     p.add_argument("words", nargs="*")
+    p = sp.add_parser("check", help="validate every data file and knowledge-base entry (run it before a pull request)")
+    p.add_argument("--write", action="store_true", help="maintainers and the merge workflow: rebuild the index, COVERAGE.md, "
+                   "CREDITS.md and the previews")
+    p.add_argument("--base", help="pull requests: the branch to compare with (origin/main); generated files must be untouched")
+    p = sp.add_parser("data", help="data library: list, show <kind> <id>")
+    p.add_argument("action", choices=("list", "show"))
+    p.add_argument("kind", nargs="?")
+    p.add_argument("id", nargs="?")
+    p = sp.add_parser("shape", help="draw a digitised shape of data/shapes/, scaled: shape <id> --measure G=190 --out folder")
+    p.add_argument("id")
+    p.add_argument("--measure", action="append", help="k=v, repeatable: the measurements the shape scales by")
+    p.add_argument("--out", default="shape_out")
+    p = sp.add_parser("digitize", help="turn a real pattern piece into a shape file: a photo (PNG), a tracing (SVG) or points (CSV)")
+    p.add_argument("file", help="photo.png (click tool), tracing.svg, or points.csv (x, y[, name][, corner])")
+    p.add_argument("--id", required=True, help="name of the shape file, lowercase with dashes")
+    p.add_argument("--title")
+    p.add_argument("--scale-length", type=float, help="real length in cm of the ruler segment (photo) or of the `scale` line (SVG)")
+    p.add_argument("--px-per-cm", type=float, help="SVG without a scale line: drawing units per cm")
+    p.add_argument("--unit", choices=("cm", "mm", "in"), default="cm", help="unit of a CSV of points")
+    p.add_argument("--out", help="output file (default: data/shapes/<id>.json); an existing file gets the outline added")
+    p.add_argument("--outline", help="name of this outline in the shape file (back, front, sleeve...)")
+    p.add_argument("--type", help="its piece type: bodice_back, bodice_front, sleeve, skirt_front, skirt_back, trousers_front, "
+                   "trousers_back, collar, other")
+    p = sp.add_parser("analyze", help="measure a digitised pattern: every standard dimension, seam and ease, and what is missing")
+    p.add_argument("shape", help="id of a shape of data/shapes/, or the path of a shape file")
+    p.add_argument("--measure", action="append", help="k=v: analyse it scaled to another size")
     sp.add_parser("test")
     args = ap.parse_args()
+    library.use_table(getattr(args, "table", None))
+    library.use_avatar(getattr(args, "avatar", None))
+    if args.cmd == "check":
+        return library.cmd_check(args)
+    if args.cmd == "data":
+        return library.cmd_data(args)
+    if args.cmd == "shape":
+        return library.cmd_shape(args)
+    if args.cmd == "digitize":
+        return library.cmd_digitize(args)
+    if args.cmd == "analyze":
+        return library.cmd_analyze(args)
     if args.cmd == "kb":
         return cmd_kb(args)
     if args.cmd == "test":
@@ -2022,6 +2386,9 @@ def main():
         return cmd_smooth(args)
     if args.cmd == "piece":
         return cmd_piece(args)
+    if args.cmd == "template":
+        import templates
+        return templates.main(args)
     if args.cmd == "garment":
         import garment
         return garment.main([args.spec, "--out", args.out])

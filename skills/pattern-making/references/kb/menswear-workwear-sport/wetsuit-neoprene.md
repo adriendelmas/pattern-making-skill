@@ -1,0 +1,18 @@
+# Wetsuit (Neoprene Panels) {#wetsuit-neoprene}
+
+- **Aliases**: full suit, shorty, steamer, spring suit, long john (fr: combinaison de plongée, combinaison néoprène); (de: Neoprenanzug)
+- **Family**: swimwear and water sports, technical garments
+- **Recognize**: a close-fitting neoprene suit made from many panels, with glued and blind-stitched seams, a back zip, chest zip or zipperless entry, collar seal, wrist and ankle seals, thicker neoprene on the torso than on the limbs (a notation such as 4/3 means torso/limb thickness).
+- **Pieces**: chest panel (1), back panel (1 or 2, with zip), shoulder or yoke panels (2), arm panels (inner and outer, 4), underarm gussets (2), leg panels (thigh, knee, calf, front and back, 8 to 10), crotch panel (1), neck collar (1), cuffs and ankle seals (4), knee pads (2, optional), lining (jersey on the inside, laminated), tape for seams (internal tape, strip).
+- **Shape**: Unverified as a drawn pattern. The source search says a single suit can have 15 to 30 panels that fit together like a jigsaw, cut from neoprene sheets with a template that also sets the seams; designers vary thickness by zone, thinner neoprene in flexible areas such as the armpits and thicker on the chest, back and upper legs; extra pieces include an armpit gusset, mesh-lined chest and back panels and zip positions (see Sources). The arm and leg panel shapes were not described in the sources found. General approach (trade practice): the body is a stretch block (neoprene stretch not measured here: test the actual sheet with the technique sheet 1.1 stretch test) with horizontal reduction 10 to 15 percent and vertical reduction 5 to 8 percent (technique sheet 6.1, 2.2) so that the suit is close to the skin; panels are placed where the body flexes (underarm, knee, back of knee) so that seams do not cross the stress points; seam allowance is small (0.5 to 0.7 cm, typical), and panel edges are butted, glued, blind stitched with a curved needle that does not penetrate fully, and taped on the inside. Sew rule: panel edges are butted (not overlapped) and glued, then stitched from the inside; flatlock seams overlap the panel edges and are not watertight.
+- **Drafting**: 1. Draft a close-fit block for the body in the entry position, using the full stretch of the fabric for the entry and a lower reduction at the cuffs. 2. Split into panels along the body contours and place the seam where the body bends. 3. Add a zip position (back or chest). 4. Mark glue seam allowance (typical 5 mm). 5. Check the entry circumference at shoulders and hips.
+- **Sewing order**: heat-press the panels; apply rubberized glue to the edges; press the seams together and let them cure (about 24 hours for glued suits in one source); blind stitch from the inside; tape the back of the seams; add the zip, seals and pads.
+- **Finishes and notions**: glued and blind-stitched (GBS) seams for cold water; flatlock for warm water; liquid rubber seam seal on high-end suits; internal tape; knee pads; zip.
+- **Fabrics**: closed-cell neoprene 2 to 6 mm laminated with nylon or jersey; thickness differs by zone.
+- **Fit faults**: water flushes in the neck -> collar seal too loose; chest wrinkles -> torso too long; knee panel binds -> too little stretch, move seam.
+- **Variants**: #rash-guard, #sport-leggings.
+- **CLO3D**: use a thick, low-drape fabric with high stretch; each panel as a separate pattern; seams as sewing lines; avatar in the entry position; verify the stretch of the suit in the simulation.
+- **Confidence**: panel counts, thickness zones and seam methods: web sources (Sources). Shape of arm and leg panels: not known. Reductions: typical.
+
+---
+- **Status**: unverified

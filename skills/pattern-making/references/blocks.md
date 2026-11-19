@@ -39,6 +39,21 @@ noted a. All values in cm, on the half body.
   same distance from the underarm as the bodice's across notches, plus a share of the ease.
 - **Check**: cap length minus armhole equal to the planned ease.
 
+## Circle skirt
+
+- `block circle_skirt --fullness 1 --panels 2 --length 70`: waist radius r = finished waist / (2 π fullness),
+  hem radius r + length; each panel spans 2 π fullness / panels, drawn symmetric about its grain line with
+  arcs as cubic Beziers of 90 degrees at most. Fullness 1 full circle, 0.5 half, 0.25 quarter. Two panels give
+  a front and a back with side seams, one panel a single seam; the seams are written.
+- **Check**: the waist arcs add up to waist + `skirt_waist` ease. Hem length printed.
+
+## Knits (`--knit`)
+
+- Bodice and sleeve for a medium-stretch knit (`ease.md`): no bust dart, no waist darts (the side seam
+  takes the whole bust-to-waist difference), ease bust -4, waist -4, sleeve cap 0, wrist +2, no shoulder ease,
+  unless the measurements file sets its own `ease`. The 3D shell gets an 8 mm mesh.
+- `--sleeve-length 26` and `--sleeve-hem 30` (finished hem circumference) shape a short or a wide sleeve.
+
 ## Trousers
 
 - **Widths at the hip**: (H + a) / 4 minus 1 at the front, plus 1 at the back.
@@ -52,6 +67,21 @@ noted a. All values in cm, on the half body.
 - **Darts**: 2 cm at most at the front, 3 cm at the back, removed below 0.5 cm.
 - **Checks**: front and back side seams equal, back inseam slightly shorter than the front, waist.
 
+## 3D shell of the blocks
+
+`block` also writes, in `out/clo3d/`, the shell sent to CLO3D: fold pieces unfolded, pairs mirrored into L
+and R (backs with the wearer's side), every seam one edge to one edge with its ease declared (side seams
+with the bust dart closed, shoulders with the back ease, sleeve cap matched to the armhole at the notches,
+centre seams, dart legs, trouser side seams and inseams node to node), fabric role `shell` and default
+arrangement points (`references/clo3d.md`).
+
+## Where the numbers come from
+
+Standard sizes, grading steps and ease are read from `data/measurements/standard-eu.json` (or the table named by
+`--table`); the glove's hand from `glove-hand.json`, its thumb and thumb hole from the digitised shape
+`data/shapes/bolton-thumb.json`. The proportions inside the drafts (dart shares, curve shapes) are in the code and
+described above.
+
 ## Blocks the script does not draft
 
 They are built on the same principles, starting from the existing blocks:
@@ -62,6 +92,5 @@ They are built on the same principles, starting from the existing blocks:
   cuff and stand collar.
 - **Jacket**: 10 to 14 cm of ease, shoulder widened by 1 cm, armhole lowered by 1.5 to 2 cm, two-piece
   sleeve to follow the elbow.
-- **Knits, t-shirt, leggings**: start from the blocks, remove the darts, apply the negative ease of
-  `ease.md`.
+- **T-shirt, leggings**: `--knit` bodice and sleeve; leggings from the trousers block with negative ease.
 - **Children**: no darts, more ease, and a growth allowance in the hem.

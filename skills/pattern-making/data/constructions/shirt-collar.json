@@ -1,0 +1,39 @@
+{
+  "id": "shirt-collar",
+  "kind": "construction",
+  "applies_to": "collar.shirt",
+  "default": true,
+  "title": "Shirt collar with a separate stand, men's proportions",
+  "unit": "cm (angles in degrees)",
+  "values": {
+    "h_cb": 3.2,
+    "h_cf": 2.5,
+    "rise": 1.5,
+    "fall_cb": 4.5,
+    "spring": 2.0,
+    "point": 7.0,
+    "lean": 35.0,
+    "fall_short": 1.25,
+    "turn_of_cloth": 0.25
+  },
+  "doc": {
+    "h_cb": "stand height at the centre back",
+    "h_cf": "stand height at the front end",
+    "rise": "how much the stand's neck edge curves up at the front",
+    "fall_cb": "fall (collar) height at the centre back; stand + 1 to 1.5 so the fall covers the stand",
+    "spring": "rise of the fall's neck edge at the front",
+    "point": "collar point length",
+    "lean": "angle of the collar point from the vertical, towards the front, degrees",
+    "fall_short": "the fall's neck edge stops this short of the stand's front end",
+    "turn_of_cloth": "upper collar larger than the under collar by this"
+  },
+  "provenance": {
+    "source": "references/techniques/sleeves-collars.md section 2.3; kb mens-shirt-collar-stand",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-19",
+    "notes": "Values inside the ranges of the technique sheet; the outline they give was not compared to a published draft."
+  }
+}

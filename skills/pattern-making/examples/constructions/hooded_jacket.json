@@ -1,0 +1,42 @@
+{
+ "title": "Hooded jacket",
+ "shaping": "darts",
+ "fit": {
+  "side_ease": 2.0,
+  "arm_drop": 2.0
+ },
+ "length": {
+  "below_waist": 25
+ },
+ "front": {
+  "extension": 2.0,
+  "buttons": [
+   8,
+   18,
+   28
+  ]
+ },
+ "collar": {
+  "type": "hood"
+ },
+ "sleeve": {
+  "type": "two-piece"
+ },
+ "facing": {
+  "type": "width",
+  "width": 8
+ },
+ "lining": {
+  "hem": "jump"
+ },
+ "pockets": [
+  {
+   "type": "jetted",
+   "y": 4
+  },
+  {
+   "type": "welt",
+   "where": "chest"
+  }
+ ]
+}

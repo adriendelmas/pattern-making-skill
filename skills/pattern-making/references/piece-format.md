@@ -53,6 +53,26 @@ JSON format read by `python scripts/pattern.py piece file.json` and produced by 
   checks that it lies inside that piece, up to 0.6 cm (turn of cloth). For mirrored pieces, `L` matches `L`.
 - **`mirror: true`**: the piece is cut as a left and right pair. The export writes `<name> L` and its mirror
   `<name> R` (same node names, same winding).
+- **`wearer: "right"`**: on a mirrored piece whose original half is the wearer's right (backs, drawn with
+  x towards the side): `{side}` in its arrangement name then follows the wearer, not the drawing.
+- **CLO3D keys**, copied into `clo3d_<size>.json` and read by `build_garment` (`references/clo3d.md`):
+  `fabric` (a role: `shell`, `lining`, `patch`), `particle_distance` (mesh size in mm), `layer`,
+  `arrange` (`{"name": "Arm_Outside_1_{side}", "orientation": 0, "x", "y", "offset"}`).
+- **`band`**: a straight band drafted from the edges it is sewn to, instead of an outline:
+
+  ```json
+  {"name": "Waistband", "band": {"height": 4, "extension": 3, "ease": 0,
+   "along": [["Skirt back L", "center_waist", "dart0_1"], ["Skirt back L", "dart0_2", "side_waist"],
+             ["Skirt front", "side_waist_sym", "dart0_2_sym"], ["Skirt front", "dart0_1_sym", "center_waist"]]},
+   "arrange": {"name": "Body_Front_Center_3"}}
+  ```
+
+  Each entry of `along` is one edge (two neighbouring nodes) of another piece of the file, in sewing order;
+  the band's lower edge is split at the same points (nodes `b0`, `b1`...) and one seam per edge is added, so
+  a waistband, a stand collar, a cuff or a straight facing is written in four lines. `height` is the finished
+  height as sewn in 3D (a folded band is cut at twice that height); `extension` adds an underlap past the
+  last edge; `ease` (ratio, with `why`) when the band is eased onto the edges. The band is sewn edge to
+  edge: list the segments between darts separately, as above.
 
 ## Seams (any garment, as data)
 

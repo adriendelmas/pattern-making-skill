@@ -1,0 +1,34 @@
+name: generate
+
+# After every merge, the skill redraws what is derived from the data: the previews and analysis sheets next to the
+# data files and the examples, the knowledge-base index, COVERAGE.md and CREDITS.md. Nobody writes them by hand,
+# so a picture in this repository always shows what the data really gives.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency: generate
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Rebuild the generated files
+        run: python skills/pattern-making/scripts/pattern.py check --write
+      - name: Commit them
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "Rebuild previews, analysis sheets, index, coverage and credits from the data"
+            git push
+          fi

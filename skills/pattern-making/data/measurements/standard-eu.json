@@ -1,0 +1,139 @@
+{
+  "id": "standard-eu",
+  "kind": "measurements",
+  "title": "Indicative European sizes: women 34 to 48, men 44 to 58, children 4 to 14 years",
+  "description": "Starting point when a measurement is missing and basis for grading. Always prefer real body measurements.",
+  "unit": "cm",
+  "bodies": {
+    "women": {
+      "reference_size": 38,
+      "size_step": 2,
+      "sizes_range": [34, 48],
+      "base": {
+        "bust": 88,
+        "waist": 68,
+        "hip": 94,
+        "back_length": 41,
+        "hip_depth": 20,
+        "skirt_length": 60,
+        "arm_length": 59,
+        "wrist": 16,
+        "body_rise": 27,
+        "trouser_length": 102,
+        "knee_width": 42,
+        "hem_width": 38
+      },
+      "grade": {
+        "bust": 4,
+        "waist": 4,
+        "hip": 4,
+        "back_length": 0.5,
+        "arm_length": 0.5,
+        "wrist": 0.5,
+        "body_rise": 0.5,
+        "knee_width": 1,
+        "hem_width": 1
+      }
+    },
+    "men": {
+      "reference_size": 48,
+      "size_step": 2,
+      "sizes_range": [44, 58],
+      "base": {
+        "bust": 96,
+        "waist": 82,
+        "hip": 98,
+        "back_length": 45,
+        "hip_depth": 21,
+        "skirt_length": 60,
+        "arm_length": 64,
+        "wrist": 17.5,
+        "body_rise": 27,
+        "trouser_length": 106,
+        "knee_width": 46,
+        "hem_width": 42
+      },
+      "grade": {
+        "bust": 4,
+        "waist": 4,
+        "hip": 4,
+        "back_length": 0.5,
+        "arm_length": 0.5,
+        "wrist": 0.5,
+        "body_rise": 0.5,
+        "knee_width": 1,
+        "hem_width": 1
+      }
+    },
+    "children": {
+      "reference_size": 8,
+      "sizes": {
+        "4": {"height": 104, "bust": 56, "waist": 53, "hip": 58},
+        "6": {"height": 116, "bust": 60, "waist": 55, "hip": 63},
+        "8": {"height": 128, "bust": 64, "waist": 57, "hip": 68},
+        "10": {"height": 140, "bust": 70, "waist": 60, "hip": 74},
+        "12": {"height": 152, "bust": 76, "waist": 63, "hip": 80},
+        "14": {"height": 164, "bust": 82, "waist": 66, "hip": 87}
+      },
+      "lengths": {
+        "by": "height",
+        "at": 128,
+        "values": {
+          "back_length": 29,
+          "hip_depth": 13,
+          "skirt_length": 35,
+          "arm_length": 43,
+          "wrist": 13,
+          "body_rise": 20,
+          "trouser_length": 76,
+          "knee_width": 32,
+          "hem_width": 30
+        }
+      }
+    }
+  },
+  "ease": {
+    "women": {
+      "bust": 8,
+      "bodice_waist": 4,
+      "skirt_waist": 1,
+      "skirt_hip": 4,
+      "trouser_waist": 1,
+      "trouser_hip": 4,
+      "sleeve_cap": 2.5,
+      "wrist": 8,
+      "shoulder": 0.8
+    },
+    "men": {
+      "bust": 10,
+      "bodice_waist": 6,
+      "skirt_waist": 1,
+      "skirt_hip": 4,
+      "trouser_waist": 1,
+      "trouser_hip": 6,
+      "sleeve_cap": 1.5,
+      "wrist": 10,
+      "shoulder": 0.6
+    },
+    "children": {
+      "bust": 8,
+      "bodice_waist": 6,
+      "skirt_waist": 2,
+      "skirt_hip": 6,
+      "trouser_waist": 2,
+      "trouser_hip": 6,
+      "sleeve_cap": 1.5,
+      "wrist": 8,
+      "shoulder": 0.5
+    }
+  },
+  "provenance": {
+    "source": "Compiled for this skill from common European size charts; no single published table",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-19",
+    "notes": "Not checked against EN 13402 or a national size survey. Children: age, then height, bust, waist, hip; lengths are given at 128 cm and scaled by height."
+  }
+}

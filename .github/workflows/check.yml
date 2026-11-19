@@ -1,0 +1,27 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Data, knowledge base, no reference image, no generated file edited by hand
+        if: github.event_name == 'pull_request'
+        run: python skills/pattern-making/scripts/pattern.py check --base origin/${{ github.base_ref }}
+      - name: Data, knowledge base, no reference image
+        if: github.event_name != 'pull_request'
+        run: python skills/pattern-making/scripts/pattern.py check
+      - name: Engine
+        run: python skills/pattern-making/scripts/pattern.py test

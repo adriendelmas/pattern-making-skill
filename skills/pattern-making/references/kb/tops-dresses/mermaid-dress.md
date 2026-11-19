@@ -1,0 +1,16 @@
+# Mermaid Dress {#mermaid-dress}
+
+- **Aliases**: fishtail dress, fitted-and-flared gown, mermaid gown; fr: robe sirène; de: Meerjungfrauenkleid
+- **Family**: dress, fitted to the knee, flaring below
+- **Recognize**: a dress close-fitting through the bust, waist and hip and thigh down to about the knee, where it flares dramatically (godets, gores or a ruffle) to a floor-length hem, usually with princess seams and CB zip.
+- **Pieces**: bodice front centre x1 on fold, front side x2, back side x2, back centre x2 (zip), skirt panels in matching seam lines, godets or flare panels x4 to x8, bodice and skirt lining, interlining, optional boning.
+- **Shape**: Fitted section: the princess line continues from the bodice past the hip as straight (or slightly tapered) seams to the flare point K at about knee height (in a mermaid dress K sits at the knee or just above; the knee-to-floor section then carries the flare). Below K, each panel seam has a godet (a pie-shaped wedge) or is itself widened with a flare of 20 to 40 cm per seam, bringing the hem circumference to a typical 250 to 400 cm. A godet: top point at K, length from K to the hem, hem width 40 to 80 cm (style), edge curve at the hem; its two long edges sew to the two panel edges that are slit open at K. Hem is curved. Hip ease 2 to 4 cm (full) so the fitted section can be sat in, with a lower slit or the flare giving the walking width. Panels: front centre, front side, side back, back centre with a CB zip and the slit gored at K in the back. Source: godet construction (thecreativecurator.com and Threads godet skirt tutorials: apex at about knee height, wedge with free hem width); mermaid panel layout unverified as a drawn pattern.
+- **Drafting**: 1. Princess line dress block to K (measure from the waist, typical 55 to 65 cm for a knee-level K). 2. Straighten the seams from the hip to K, taper them 0 to 3 cm per panel at K. 3. Slit each seam at K to the hem, insert a godet or spread the panels at the hem by 10 to 20 cm each. 4. Length to the floor with the shoe allowance. 5. Lining as the fitted section only, or as the full shape.
+- **Sewing order**: 1. Bodice and skirt panels, join as a princess dress. 2. Insert godets: slit the seam, pin the godet along the slit edges, stitch with the godet on top and the slit stitched to the apex. 3. CB zip. 4. Hem (rolled or faced with horsehair braid for stiffness).
+- **Finishes and notions**: horsehair braid at the hem, lining in the fitted part, concealed zip 50 to 60 cm, optional bone.
+- **Fabrics**: crepe, satin, stretch lace, mikado; stretch fabrics allow the fitted part to be 2 to 4 cm tighter.
+- **Fit faults**: restricts walking at K -> raise the flare point 5 to 8 cm or widen the fitted section; godet apex puckers -> stitch the apex with a short stitch and reinforce; flare collapses -> add horsehair or interlining.
+- **Variants**: #trumpet-dress, #princess-line-dress, #godet, #strapless-boned-dress.
+- **CLO3D**: build the godets as separate wedge patterns sewn to the slit edges; mesh 5 mm; heavy flares need a high-quality simulation; hem stiffness via a hem facing pattern.
+- **Confidence**: trade practice and godet drafting from web sources. Panel counts, flare widths and K height typical; no drawn mermaid pattern read.
+- **Status**: unverified

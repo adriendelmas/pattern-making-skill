@@ -1,0 +1,25 @@
+{
+  "id": "convertible-collar",
+  "kind": "construction",
+  "applies_to": "collar.convertible",
+  "default": true,
+  "title": "Convertible (camp) collar in one piece",
+  "unit": "cm (angles in degrees)",
+  "values": {"h_cb": 7.5, "spring": 3.0, "point": 8.0, "lean": 35.0, "turn_of_cloth": 0.3},
+  "doc": {
+    "h_cb": "collar height at the centre back, stand part included",
+    "spring": "rise of the neck edge at the front",
+    "point": "collar point length",
+    "lean": "angle of the collar point from the vertical, degrees",
+    "turn_of_cloth": "upper collar larger than the under collar by this"
+  },
+  "provenance": {
+    "source": "references/techniques/sleeves-collars.md section 2.4",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-19",
+    "notes": "Values inside the ranges of the technique sheet; the outline they give was not compared to a published draft."
+  }
+}

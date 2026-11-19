@@ -1,0 +1,33 @@
+{
+ "title": "Camp shirt",
+ "shaping": "boxy",
+ "fit": {
+  "side_ease": 3.0,
+  "neck_drop": 6.0
+ },
+ "length": {
+  "below_waist": 28
+ },
+ "front": {
+  "extension": 1.5,
+  "buttons": [
+   10,
+   20,
+   30,
+   40
+  ]
+ },
+ "collar": {
+  "type": "convertible"
+ },
+ "sleeve": {
+  "type": "one-piece",
+  "length": 24,
+  "hem": 34,
+  "ease": 0.5
+ },
+ "facing": {
+  "type": "width",
+  "width": 6
+ }
+}

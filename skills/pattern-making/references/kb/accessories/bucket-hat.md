@@ -1,0 +1,16 @@
+# Bucket Hat {#bucket-hat}
+
+- **Aliases**: fisherman hat, rain hat, bob; fr: bob
+- **Family**: hat, soft, brimmed, unstructured
+- **Recognize**: round flat top, straight slanted crown sides, brim of constant width all round (flat or drooping), seams round the crown base, often topstitched brim in rows.
+- **Pieces**: crown top (x1 outer, x1 lining), crown side (x1 outer, x1 lining, seam at the back, or x2), brim (x2: top and under, each ring or ring sectors), interfacing for the brim (x1, optional), sweatband or bias binding, optional eyelets.
+- **Shape**: derived geometry. Crown top = disc of radius Rt. Crown side = frustum, flat pattern = ring sector with outer arc length Cb (bottom circumference) and inner arc Ct, so the sector is the unrolled cone: slant s = sqrt(h^2 + (Rb - Rt)^2), outer radius Lout = s x Rb/(Rb - Rt), inner radius Lin = Lout - s, angle alpha = 360 x Rb/Lout. The straight back seam sews edge to edge; the inner arc sews to the top disc (check Ct = 2 pi Rt), the outer arc to the brim inner edge. Brim = flat ring, inner radius Rb, outer radius Rb + B, or, drooping at angle delta below horizontal, a ring sector of angle 360 x cos(delta) with inner radius Cb/(2 pi cos(delta)). Brim ring is cut in 2 or 4 sectors if the fabric width is short; sectors sew edge to edge. Source: technique sheet 2.1 (geometry); the sheet's printed example gave Lout 672, Lin 591 and alpha 49.4, which is slightly off; exact values for H = 570, Cb = 580, h = 80, theta = 8 degrees are Rb = 92.3, Rt = 81.1, Ct = 509.4, s = 80.8, Lout = 663.3, Lin = 582.5, alpha = 50.1 degrees. Outline proportions: unverified as a drawn pattern, geometry exact.
+- **Drafting**: 1. Cb = H + 10. 2. Crown height h (vertical side) 70 to 90 [T]; slope theta 6 to 10 degrees [T] gives Ct = Cb - 2 pi h tan(theta). 3. Compute Rb, Rt, s, Lout, Lin, alpha. 4. Brim width B 40 to 60 (droopy 65 to 70) [T]; flat ring or sector formula above. 5. Add 10 SA on the crown seams, 6 on a topstitched brim edge. 6. Mark the back seam, 4 notches round the crown base and brim inner edge. A simple alternative to the cone: a straight band H + 10 long x 80 high, narrowed 15 mm per side at the top.
+- **Sewing order**: 1. Crown side seam. 2. Crown to top. 3. Brim seam(s); layer the two brims right sides together and stitch the outer edge, turn, press, topstitch rows 6 to 8 mm apart (3 to 5 rows stiffen). 4. Attach brim to crown. 5. Lining crown, finish with sweatband or bias.
+- **Finishes and notions**: topstitched brim, interfacing, optional eyelets, optional chin cord.
+- **Fabrics**: cotton twill, denim, canvas, nylon, terry; the heavier the fabric, the fewer rows of stitching the brim needs.
+- **Fit faults**: crown does not meet the brim (compare arc lengths Cb vs brim inner arc), brim collapses (interfacing or rows of stitching), too loose (reduce by 10 and add a tuck at the nape).
+- **Variants**: #wide-brim-sun-hat (wider, wired brim), #sou-wester (back-weighted brim), #baseball-cap-6-panel.
+- **CLO3D**: brim with higher bend stiffness; sew the brim sectors 1:1; mesh 5 mm; position the hat on the head with Pin to avoid slipping.
+- **Confidence**: geometry verified by calculation; styling ranges trade practice.
+- **Status**: unverified

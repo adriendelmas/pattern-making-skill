@@ -1,0 +1,16 @@
+# Fourchette (One-Piece Fork and Two-Piece Arms) {#fourchette}
+
+- **Aliases**: fork, forge, finger gusset, sidewall, finger side strip, continuous fourchette (one long strip); fr: fourchette, soufflet
+- **Family**: glove, finger depth piece
+- **Recognize**: a seam along both sides of each finger from the web to the tip, with a narrow strip (often 3 to 8 mm wide at mid-finger) between the back and the palm of the finger.
+- **Pieces**: one arm per finger side: per hand index 1, middle 2, ring 2, little 1 (6 arms, 12 per pair). Two-piece construction: each arm cut separately and the two arms of a fork joined at the base. One-piece construction: the two arms of a fork cut as one piece folded at the web, or (continuous) one long strip run over each finger tip. The index outer side has no fourchette: the two index halves are sewn directly together.
+- **Shape**: drawn pattern: The Shapes of Fabric and Koch (Threads) for the two-arm fork; the continuous strip follows Dreamstress, outline unverified. Each arm is a straight tapered strip, longer (by about 5 mm) on the edge that sews to the back finger edge than on the edge that sews to the palm finger edge, because back slits are about 5 mm deeper. Base end cut at a slant (or the back edge slightly curved) so both edges meet the finger edges; width at the base about 1.3 x fw_mid (knit sample: 15 mm at the base, 5 at the top), width at the tip about 0.6 x fw_mid (3 to 4 mm). Notch at the base (centre of the fork) and one notch at mid-finger. Tip: the arm ends where the tip rounding starts; cut across at the tip, shape one side to the finger contour and ease the other in a gentle slope from about 25 mm down (Koch). Worked example, size 7, back / palm edge: index 72 / 67, middle 87 / 82 (both sides), ring 75 / 70 (middle side) and 84 / 79 (little side), little 61 / 56.
+- **Drafting**: 1. Edge length = fingertip height minus crotch height on the back and on the palm. 2. Draw the tapered strip, back edge longer. 3. Base width 1.3 x fw_mid, tip 0.6 x fw_mid, where fw_mid = (sum of finger girths - trank width)/6. 4. Notch base and mid. 5. Join the two arms of a fork at the base with a 4 to 6 mm seam, or cut as one piece folded at the web. 6. Check each arm edge against the slit edge within 0.5 mm. 7. Optional diamond quirk at the web (#quirks).
+- **Sewing order**: 1. Make up each fork. 2. Align the fork centre with the crotch point, sew along both finger edges, index to little finger, in several short passes; do not stretch. 3. Close tips.
+- **Finishes and notions**: outseam or inseam; 3 mm allowance in knit.
+- **Fabrics**: leather or the same fabric; arms along the low-stretch direction. Two-piece fitted fourchettes keep the fingers from riding up the hand (patent literature).
+- **Fit faults**: finger too tight -> arms too narrow or fw_mid mis-computed; web puckers -> arm base not centred on the crotch; fingers pull toward the palm -> back arm not longer.
+- **Variants**: #quirks, #trank-glove, #two-piece-trank (no fourchettes in some work gloves).
+- **CLO3D**: 12 thin pieces, segment sewing 1:1 to the slit edges; use the finest mesh (3 to 4 mm) there.
+- **Confidence**: verified for two-arm forks (The Shapes of Fabric, Koch); one-piece continuous strip: from Dreamstress, outline unverified.
+- **Status**: unverified
