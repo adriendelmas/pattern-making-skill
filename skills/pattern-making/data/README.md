@@ -84,7 +84,7 @@ table: a value that cannot make a pattern is reported with its size.
 ```
 
 `applies_to` names what the values belong to: `collar.notched`, `collar.stand`, `collar.shirt`,
-`collar.convertible`, `collar.hood`, or a section of a garment spec (`fit`, `shoulder`, `length`, `front`, `sleeve`,
+`collar.convertible`, `collar.hood`, `pocket.patch`, `pocket.in-seam`, `pocket.welt`, `pocket.jetted`, or a section of a garment spec (`fit`, `shoulder`, `length`, `front`, `sleeve`,
 `facing`). Give only the values that differ from the default file of the same `applies_to` (the one with
 `"default": true`, where every value is described). A spec uses it with `"collar": {"preset": "notched-collar-wide"}`.
 To correct a default value, edit the default file and say why in the pull request.
@@ -110,12 +110,14 @@ A shape is a real pattern at the size it was drafted for: one piece, or every pi
                 "extraction": {"method": "ruler", "line": "seam", "deviation_mm": 1.0}}}
 ```
 
-- `type`: what the piece is (`bodice_back`, `bodice_front`, `sleeve`, `skirt_front`, `skirt_back`,
-  `trousers_front`, `trousers_back`, `collar`, `other`). A standard type has standard point names, and the skill
-  measures its standard dimensions from them.
+- `type`: what the piece is (`bodice_front`, `sleeve_top`, `collar`, `hood`, `glove_thumb`... or `other`). A
+  standard type has standard point names, and the skill measures its standard dimensions from them:
+  [TYPES.md](TYPES.md) lists every type, its points and its dimensions.
 - `seams`: pairs of edges sewn together, between named points, as in a recipe (`references/piece-format.md`).
   `edges`: every edge that is not a seam (`fold`, `hem`, `applied`, `free`, `slit`). Every edge is one or the other.
 - `parameters`: dimensions to adjust that the standard types do not measure.
+- `inner_darts`, on an outline: darts drawn inside the piece (fish darts at the waist), each
+  `{"name": "waist_dart", "points": [top, one side, bottom, other side]}`. They are deducted from the waist.
 - `python scripts/pattern.py analyze <id>` measures all of it and lists what is missing; the full method is in
   [EXTRACTION.md](EXTRACTION.md).
 

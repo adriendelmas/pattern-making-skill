@@ -16,7 +16,11 @@
       "neck_widen": 0.0,
       "neck_drop": 0.0,
       "arm_drop": 1.5,
-      "across_out": 0.0
+      "across_out": 0.0,
+      "cb_waist": 1.0,
+      "bust_dart": null,
+      "dart_shift": 0.0,
+      "dart_below": 14.0
     },
     "shoulder": {"extend": 0.0, "pad": 0.0},
     "shaping": "darts",
@@ -36,6 +40,7 @@
       "bend": 1.0,
       "elbow": 0.7,
       "vent": 0.0,
+      "vent_width": 3.0,
       "neck": 4.0,
       "arm": 3.5,
       "bow": 1.2,
@@ -53,12 +58,13 @@
     "hem_allowance": 4.0
   },
   "doc": {
-    "fit": "side_ease per quarter at the side seam, dart_reduce (narrower waist darts), neck_widen, neck_drop (front), arm_drop (armhole lowered), across_out",
+    "fit": "side_ease per quarter at the side seam, dart_reduce (narrower waist darts), neck_widen, neck_drop (front), arm_drop (armhole lowered), across_out, cb_waist (centre back seam taken in at the waist), bust_dart (intake of the side bust dart of a fitted front at the side seam; null: the block's; what is left out drops the front hem at the centre), dart_below (the waist darts end this far below the waist), dart_shift (front waist dart, or front princess seam, moved towards the side)",
     "shoulder": "extend (shoulder wider), pad (tip raised by the pad thickness)",
     "length": "below_waist along each seam, hip_ease, hem (full hem circumference of a flared princess)",
     "front": "extension past the centre front, buttons (heights below the neck point), hold_to (end of the fastened part)",
-    "sleeve": "type and the values of every sleeve type: see references/garment-spec.md",
-    "facing": "type (auto, width, panel), width from the front edge, back_neck depth"
+    "sleeve": "type and the values of every sleeve type: see references/garment-spec.md. ease and hem may be null: the size table's sleeve_cap ease, and wrist + its wrist ease",
+    "facing": "type (auto, width, panel), width from the front edge (type width; a panel facing is the whole front panel and has no width), back_neck depth",
+    "pockets": "one pocket or a list; the values of each type are in data/constructions/<type>-pocket.json"
   },
   "provenance": {
     "source": "references/garment-spec.md and the technique sheet tailoring-outerwear.md",

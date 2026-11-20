@@ -1,0 +1,34 @@
+{
+  "id": "welt-pocket",
+  "kind": "construction",
+  "applies_to": "pocket.welt",
+  "default": true,
+  "title": "Welt pocket, chest or hip",
+  "unit": "cm",
+  "values": {
+    "where": "chest",
+    "length": 10.5,
+    "depth": 1.8,
+    "tilt": 1.5,
+    "chest": {"x": 5.0, "y": 2.0, "bag": 13.0},
+    "hip": {"x": 4.0, "y": 3.0, "bag": 18.0}
+  },
+  "doc": {
+    "where": "chest or hip: which of the two sets of values below applies",
+    "length": "length of the opening",
+    "depth": "finished height of the welt",
+    "tilt": "the end towards the side is higher by this",
+    "x": "from the centre front to the front end of the opening",
+    "y": "chest: opening above the bust line; hip: opening below the waist",
+    "bag": "depth of the pocket bag"
+  },
+  "provenance": {
+    "source": "references/techniques (pockets), values the engine drafted with before they were moved to data",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-20",
+    "notes": "Common trade values; not compared to a published draft."
+  }
+}

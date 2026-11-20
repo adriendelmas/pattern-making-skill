@@ -1,0 +1,25 @@
+{
+  "id": "jetted-pocket",
+  "kind": "construction",
+  "applies_to": "pocket.jetted",
+  "default": true,
+  "title": "Jetted (double welt) pocket",
+  "unit": "cm",
+  "values": {"length": 15.5, "jet": 0.55, "x": 4.0, "y": 3.0, "bag": 20.0},
+  "doc": {
+    "length": "length of the opening",
+    "jet": "finished height of each jet",
+    "x": "from the centre front to the front end",
+    "y": "opening below the waist",
+    "bag": "depth of the pocket bag"
+  },
+  "provenance": {
+    "source": "references/techniques (pockets), values the engine drafted with before they were moved to data",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-20",
+    "notes": "Common trade values; not compared to a published draft."
+  }
+}

@@ -206,7 +206,18 @@ def merged(spec):
         out["collar"] = {**library.values("collar." + ctype), **out["collar"]}
     if out["pockets"] and not isinstance(out["pockets"], list):
         out["pockets"] = [out["pockets"]]
+    out["pockets"] = [pocket_values(pk) for pk in out["pockets"] or []] or None
     return out
+
+
+def pocket_values(pk):
+    """A pocket of the spec over the values of its type (data/constructions/<type>-pocket.json); a welt has values
+    of its own for the chest and for the hip."""
+    if pk.get("type") not in library.POCKETS:
+        return dict(pk)                                # refused in run, with the list of types
+    v = library.values("pocket." + pk["type"])
+    where = v.get(pk.get("where", v.get("where")), {})
+    return {**{k: x for k, x in v.items() if not isinstance(x, dict)}, **where, **pk}
 
 
 # ------------------------------------------------------------------ body
@@ -224,8 +235,8 @@ def torso(m, ease, body, f):
     T["SH"], T["AC"] = SH0, add(nodep(bf, "across"), (f["across_out"], 0.0))
     se = f["side_ease"]
     T["UA"] = add(nodep(bf, "underarm"), (se, f["arm_drop"]))
-    T["BP"] = (nodep(bf, "waist_dart")[0], nodep(bf, "side_dart")[1])
-    T["WA"] = nodep(bf, "waist_dart")
+    T["WA"] = add(nodep(bf, "waist_dart"), (f["dart_shift"], 0.0))   # front waist dart, or the princess seam, moved sideways
+    T["BP"] = (T["WA"][0], nodep(bf, "side_dart")[1])
     T["YW"] = nodep(bf, "center_waist")[1]
     wd = (nodep(bf, "waist_dart_1")[0] - nodep(bf, "waist_dart_2")[0] - f["dart_reduce"]) / 2
     T["WLi"], T["WLo"] = (T["BP"][0] - wd, T["YW"]), (T["BP"][0] + wd, T["YW"])
@@ -241,7 +252,7 @@ def torso(m, ease, body, f):
     wdb = (nodep(bb, "dart_1")[0] - nodep(bb, "dart_2")[0] - f["dart_reduce"]) / 2
     T["WLbi"], T["WLbo"] = (T["Ab"][0] - wdb, T["YWb"]), (T["Ab"][0] + wdb, T["YWb"])
     T["SWb"] = add(nodep(bb, "side_waist"), (se, 0.0))
-    T["CBW"] = (1.0, T["YWb"])
+    T["CBW"] = (f["cb_waist"], T["YWb"])
     T["sh_ease"] = dist(N0b, SH0b) - dist(N0, SH0)
     return T
 
@@ -418,19 +429,27 @@ def body_darts(T, S, m, K):
     def hip_c(sw):
         return (sw[0], sw[1] + 0.35 * hd), (hq, sw[1] + 0.65 * hd)
 
+    L2, SW, up = T["L2"], T["SW"], 0.0
+    if S["fit"]["bust_dart"] is not None:              # a smaller (or larger) bust dart than the block's: the front side
+        up = dist(T["L1"], L2) - S["fit"]["bust_dart"]   # seam below it moves up by the difference, so it still matches
+        L2 = add(T["L1"], unit(sub(L2, T["L1"])), S["fit"]["bust_dart"])   # the back, and the front hem drops at the centre
+        SW = add(SW, (0.0, -up))
+
     front = mk("Front", [("neck", T["N"], None), ("shoulder", T["SH"], T["arm_up"]), ("across", T["AC"], T["arm_lo"]),
                          ("underarm", T["UA"], None), ("side_dart_1", T["L1"], None), ("side_dart", T["AS"], None),
-                         ("side_dart_2", T["L2"], None), ("side_waist", T["SW"], hip_c(T["SW"])),
-                         ("side_hip", (hq, T["YW"] + hd), None), ("hem_side", (hq, yf), None)]
+                         ("side_dart_2", L2, None), ("side_waist", SW, hip_c(SW)),
+                         ("side_hip", (hq, T["YW"] + hd - up), None)]
+               + ([("hem_side", (hq, yf), None)] if not up else             # the hem stays level under the facing, then rises
+                  [("hem_side", (hq, yf - up), ((hq - 8, yf - up), (hq - 15, yf))), ("hem_mid", (-ext + S["facing"]["width"], yf), None)])
                + front_edge(K, ext, yf, S["front"]["hold_to"]),
-               darts_in=[[list(T["WA"]), list(T["WLo"]), [T["WA"][0], T["YW"] + 14], list(T["WLi"])]])
+               darts_in=[[list(T["WA"]), list(T["WLo"]), [T["WA"][0], T["YW"] + S["fit"]["dart_below"]], list(T["WLi"])]])
     front["outline"][idx(front, "side_dart")]["dart"] = True
     back = mk("Back", [("center_neck", T["CBN"], T["neck_b"]), ("neck", T["Nb"], None),
                        ("shoulder", T["SHb"], T["arm_upb"]), ("across", T["ACb"], T["arm_lob"]),
                        ("underarm", T["UAb"], None), ("side_waist", T["SWb"], hip_c(T["SWb"])),
-                       ("side_hip", (hq, T["YWb"] + hd), None), ("hem_side", (hq, yb), None), ("hem_cb", (0.8, yb), None),
-                       ("cb_waist", T["CBW"], ((1.0, 32.0), (0.0, 26.0))), ("cb_blade", (0.0, 20.0), None)],
-              darts_in=[[list(T["Ab"]), list(T["WLbo"]), [T["Ab"][0], T["YWb"] + 14], list(T["WLbi"])]])
+                       ("side_hip", (hq, T["YWb"] + hd), None), ("hem_side", (hq, yb), None), ("hem_cb", (0.8 * T["CBW"][0], yb), None),
+                       ("cb_waist", T["CBW"], ((T["CBW"][0], 32.0), (0.0, 26.0))), ("cb_blade", (0.0, 20.0), None)],
+              darts_in=[[list(T["Ab"]), list(T["WLbo"]), [T["Ab"][0], T["YWb"] + S["fit"]["dart_below"]], list(T["WLbi"])]])
     for pc in (front, back):
         notch(pc, "side_waist")
     side_f = [("Front", "underarm", "side_dart_1"), ("Front", "side_dart_2", "side_waist"),
@@ -438,8 +457,9 @@ def body_darts(T, S, m, K):
     side_b = [("Back", "underarm", "side_waist"), ("Back", "side_waist", "side_hip"), ("Back", "side_hip", "hem_side")]
     return {"pieces": [front, back], "side": (side_f, side_b), "arm_f": [("Front", "underarm", "across"),
             ("Front", "across", "shoulder")], "arm_b": [("Back", "underarm", "across"), ("Back", "across", "shoulder")],
-            "darts": [("Front", "side_dart_1", "side_dart", "side_dart_2")], "hem_names": {"Front": ["hem_side"],
-            "Back": ["hem_side"]}, "front_panel": "Front", "back_panel": "Back"}
+            "darts": [("Front", "side_dart_1", "side_dart", "side_dart_2")],
+            "hem_names": {"Front": ["hem_side"] + (["hem_mid"] if up else []), "Back": ["hem_side"]},
+            "front_panel": "Front", "back_panel": "Back"}
 
 
 def body_boxy(T, S, m, K):
@@ -545,14 +565,14 @@ def princess_panels(T, G, S, K, D, length, lining=None):
             ("shoulder", T["SHb"], T["arm_upb"]), ("across", T["ACb"], G["pb_up"]), ("dart_point", T["Ab"], G["pb_lo_i"]),
             ("waist", T["WLbi"], ck1), ("hem_princess", hk1, hem_c(hk1, (-dk1[1], dk1[0]), add(hk2, (-pl, 0)), neg)),
             ("hem_cb", add(hk2, (-pl, 0)), (add(ck2[1], (-pl, 0)), add(ck2[0], (-pl, 0)))),
-            ("cb_waist", add(T["CBW"], (-pl, 0)), ((1.0 - pl, 32.0), (-pl, 26.0)))] + cbtop,
-            lines=[[[0.0, lining["bnf"][1] if lining.get("bnf") else T["CBN"][1]], [1.0, T["YWb"]]]]))
+            ("cb_waist", add(T["CBW"], (-pl, 0)), ((T["CBW"][0] - pl, 32.0), (-pl, 26.0)))] + cbtop,
+            lines=[[[0.0, lining["bnf"][1] if lining.get("bnf") else T["CBN"][1]], [T["CBW"][0], T["YWb"]]]]))
     else:
         out.append(mk("Back", [
             ("center_neck", T["CBN"], T["neck_b"]), ("neck", T["Nb"], None), ("shoulder", T["SHb"], T["arm_upb"]),
             ("across", T["ACb"], G["pb_up"]), ("dart_point", T["Ab"], G["pb_lo_i"]), ("waist", T["WLbi"], ck1),
             ("hem_princess", hk1, hem_c(hk1, (-dk1[1], dk1[0]), hk2, neg)), ("hem_cb", hk2, (ck2[1], ck2[0])),
-            ("cb_waist", T["CBW"], ((1.0, 32.0), (0.0, 26.0))), ("cb_blade", (0.0, 20.0), None)]))
+            ("cb_waist", T["CBW"], ((T["CBW"][0], 32.0), (0.0, 26.0))), ("cb_blade", (0.0, 20.0), None)]))
     return out
 
 
@@ -653,8 +673,8 @@ def two_piece_sleeve(arm_f, arm_b, depth, c):
         else:
             nodes = [("front_seam_cap", Pf, f_up[1:3]), ("crown", Cr, (b_up[2], b_up[1])), ("back_seam_cap", Pb, bs_t)]
             if vent:
-                nodes += [("vent_top", Rl(VtT), None), ("vent_corner", Rl((VtT[0] + 3.0, VtT[1] + 1.0)), None),
-                          ("vent_hem", Rl((BwT[0] + 3.0, Ls)), None)]
+                nodes += [("vent_top", Rl(VtT), None), ("vent_corner", Rl((VtT[0] + c["vent_width"], VtT[1] + 1.0)), None),
+                          ("vent_hem", Rl((BwT[0] + c["vent_width"], Ls)), None)]
             else:
                 nodes += [("back_seam_hem", Rl(BwT), None)]
             nodes += [("front_seam_hem", Rl(FwT), (Rl(fs_lo[2]), Rl(fs_lo[1]))), ("front_seam_elbow", Ef, (fs_hi[2], fs_hi[1]))]
@@ -672,7 +692,7 @@ def two_piece_sleeve(arm_f, arm_b, depth, c):
                  ("front_seam_cap", T(Pf), (T(fs_u[0]), T(fs_u[1]))), ("front_seam_hem", T((FwU[0], hem)), None),
                  ("wrist_side", (W / 2, hem), None)]
         if vent and not lining:
-            nodes += [("vent_hem", (BwU[0] - 3.0, hem), None), ("vent_corner", (VtU[0] - 3.0, VtU[1] + 1.0), None),
+            nodes += [("vent_hem", (BwU[0] - c["vent_width"], hem), None), ("vent_corner", (VtU[0] - c["vent_width"], VtU[1] + 1.0), None),
                       ("vent_top", VtU, (bs_u[1], bs_u[0]))]
         else:
             bh = on_line(Pb, BwU, hem)
@@ -990,13 +1010,13 @@ def hood(T, c, ext):
 def pocket_welt(front, T, pk, allowance):
     """Breast or hip welt (kb welt-pocket): opening line on the front, welt cut folded at twice its depth, shell facing
     and pocketing bags. For CLO3D the finished welt is a strip sewn along its lower edge onto the opening line."""
-    L, dep, tilt = pk.get("length", 10.5), pk.get("depth", 1.8), pk.get("tilt", 1.5)
-    chest = pk.get("where", "chest") == "chest"
-    x0 = pk.get("x", 5.0 if chest else 4.0)
-    y0 = (T["BP"][1] - pk.get("y", 2.0)) if chest else (T["YW"] + pk.get("y", 3.0))
+    L, dep, tilt = pk["length"], pk["depth"], pk["tilt"]
+    chest = pk["where"] == "chest"
+    x0 = pk["x"]
+    y0 = (T["BP"][1] - pk["y"]) if chest else (T["YW"] + pk["y"])
     a, b = (x0, y0), (x0 + L, y0 - tilt)
     front["lines"] = front.get("lines", []) + [[list(a), list(b)]]
-    bag = pk.get("bag", 13.0 if chest else 18.0)
+    bag = pk["bag"]
     cut = [mk("Welt", [("w_top0", (0.0, 0.0), None), ("w_top1", (L, 0.0), None), ("w1", (L, 2 * dep), None),
                        ("w0", (0.0, 2 * dep), None)], grain=[[1.0, dep], [L - 1.0, dep]], cut="1 pair, folded at mid-depth",
               lines=[[[0.0, dep], [L, dep]]], allowance=allowance),
@@ -1013,11 +1033,11 @@ def pocket_welt(front, T, pk, allowance):
 def pocket_jetted(front, T, pk, allowance):
     """Jetted (double welt) pocket (kb jetted-pocket): opening line and jet lines on the front, two jet strips, shell
     facing and pocketing bags. In 3D the lines are drawn; the jets are decorative."""
-    L, jet = pk.get("length", 15.5), pk.get("jet", 0.55)
-    x0, y0 = pk.get("x", 4.0), T["YW"] + pk.get("y", 3.0)
+    L, jet = pk["length"], pk["jet"]
+    x0, y0 = pk["x"], T["YW"] + pk["y"]
     front["lines"] = front.get("lines", []) + [[[x0, y0], [x0 + L, y0]], [[x0, y0 - jet], [x0 + L, y0 - jet]],
                                                [[x0, y0 + jet], [x0 + L, y0 + jet]]]
-    bag = pk.get("bag", 20.0)
+    bag = pk["bag"]
     rect = lambda name, w, h, cut_: mk(name, [("a", (0.0, 0.0), None), ("b", (w, 0.0), None), ("c", (w, h), None), ("d", (0.0, h), None)],
                                        grain=[[1.0, 1.0], [1.0, h - 1.0]], cut=cut_, allowance=allowance)
     return [rect("Jet", L + 3, 3.0, "2 pairs, folded"), rect("Pocket facing", L + 2, bag, "1 pair, shell"),
@@ -1097,7 +1117,10 @@ def run(spec, base_dir="."):
     library.use_avatar(S.get("avatar"))
     body = S["body"]
     own = {}
-    if S["measurements"]:
+    if isinstance(S["measurements"], dict):            # given in the spec itself
+        own = copy.deepcopy(S["measurements"])
+        body = own.pop("body", body)
+    elif S["measurements"]:
         with open(os.path.join(base_dir, S["measurements"]), encoding="utf-8") as f:
             own = json.load(f)
         body = own.pop("body", body)
@@ -1177,7 +1200,16 @@ def run(spec, base_dir="."):
     ARM_B = sum(edge_len(pcs[n], a, b) for n, a, b in B["arm_b"])
     depth = ((T["UA"][1] - T["SH"][1]) + (T["UAb"][1] - T["SHb"][1])) / 2
     sc = dict(S["sleeve"])
+    given = {k: sc[k] is not None for k in ("ease", "hem", "length")}
+    if sc["ease"] is None:                             # null: the size table's own cap ease, and wrist + its wrist ease
+        sc["ease"] = ease["sleeve_cap"]
+    if sc["hem"] is None:
+        sc["hem"] = m["wrist"] + ease["wrist"]
     sc["length"] = sc["length"] or m["arm_length"] - S["shoulder"]["extend"] + S["shoulder"]["pad"] / 2
+    # what a null of the spec came to, so that `analyze --keys` can vary these values too
+    resolved = {("sleeve", k): sc[k] for k, g in given.items() if not g}
+    if S["shaping"] == "darts" and S["fit"]["bust_dart"] is None:
+        resolved[("fit", "bust_dart")] = dist(T["L1"], T["L2"])
     if stype == "two-piece":
         sv = two_piece_sleeve(ARM_F, ARM_B, depth, sc)
         ts, us_ = sv["top"](), sv["under"]()
@@ -1282,8 +1314,8 @@ def run(spec, base_dir="."):
             p_["name"] = f"{p_['name']} {seen[p_['name']]}"
     pk = next((p for p in (S["pockets"] or []) if p["type"] in ("patch", "in-seam")), None)
     if pk and pk["type"] == "patch":
-        w, h, fy = pk.get("w", 17.0), pk.get("h", 19.0), pk.get("facing", 4.0)
-        r, x0, y0 = 3.0, pk.get("x", 4.0), T["YW"] + pk.get("y", 3.0)
+        w, h, fy = pk["w"], pk["h"], pk["facing"]
+        r, x0, y0 = pk["r"], pk["x"], T["YW"] + pk["y"]
         kk = 0.55 * r
         cut.append(mk("Patch pocket", [("top_left", (0, -fy), None), ("top_right", (w, -fy), None),
                                        ("corner_r", (w, h - r), ((w, h - r + kk), (w - r + kk, h))),
@@ -1293,7 +1325,7 @@ def run(spec, base_dir="."):
         front["lines"] = front.get("lines", []) + [[[x0, y0], [x0 + w, y0]], [[x0 + w, y0], [x0 + w, y0 + h]],
                                                    [[x0 + w, y0 + h], [x0, y0 + h]], [[x0, y0 + h], [x0, y0]]]
     elif pk and pk["type"] == "in-seam":
-        top_, ln = pk.get("top", 6.0), pk.get("length", 17.0)
+        top_, ln = pk["top"], pk["length"]
         seam = (B["princess"][0] if S["shaping"] == "princess" else B["side"])
         for chain in seam:
             nm, a, b = next(e for e in chain if e[1] in ("waist", "side_waist", "side_dart_2"))
@@ -1466,7 +1498,7 @@ def run(spec, base_dir="."):
         ck("back shoulder - front shoulder (ease)", edge_len(back, "neck", "shoulder") - edge_len(front, "neck", "shoulder"),
            T["sh_ease"])
     return {"spec": S, "size": size, "cut": cut, "lining": lining_pieces, "shell3d": list(shell3d.values()),
-            "seams": seams, "holds": holds, "checks": checks}
+            "seams": seams, "holds": holds, "checks": checks, "measurements": m, "ease": ease, "resolved": resolved}
 
 
 def derived_linings(front, back, T, Fs, fac_c, xf, y_low, up, pl, bnf, shaping):

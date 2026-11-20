@@ -2,7 +2,7 @@
   "id": "glove-hand",
   "kind": "measurements",
   "title": "Hand measurements for gloves, size 7, graded by half sizes",
-  "description": "G hand girth, HL hand length, h_* height of each finger base above the wrist crease, F_* finger lengths, Cf_* finger girths, T_o and T_p thumb lengths (outer, palm side), T_g thumb girth, Web_T height of the thumb web, end_below_wrist and end_girth: where the glove ends on the arm. Fingers: I index, M middle, R ring, L little.",
+  "description": "G hand girth, HL hand length, h_* height of each finger base above the wrist crease, F_* finger lengths, Cf_* finger girths, T_o and T_p thumb lengths (outer, palm side), T_g thumb girth, Web_T height of the thumb web, end_below_wrist and end_girth: where the glove ends on the arm. Fingers: I index, M middle, R ring, L little. The thumb is a digitised shape scaled by G; against the table's hand of the same G, T_g widens the thumb and its hole, T_o and T_p lengthen the thumb by their mean difference. HL is not drafted from: the report prints HL - (h_M + F_M) so that an inconsistent hand shows.",
   "unit": "mm",
   "bodies": {
     "hand": {

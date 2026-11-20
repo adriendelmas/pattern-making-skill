@@ -18,7 +18,7 @@
         {"name": "h_TR2", "p": [26.9706, 4.269]},
         {"name": "h_V", "p": [14.3, 9.3]}
       ],
-      "type": "other",
+      "type": "glove_thumb_hole",
       "edges": {"slit": [["h_TR", "h_D"], ["h_D", "h_TR2"]]}
     },
     "thumb": {
@@ -38,7 +38,7 @@
         {"name": "d", "p": [0.3, 0.15]},
         {"name": "RL", "p": [0.15, 0]}
       ],
-      "type": "other"
+      "type": "glove_thumb"
     }
   },
   "seams": [

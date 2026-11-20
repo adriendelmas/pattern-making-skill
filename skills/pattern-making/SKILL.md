@@ -83,6 +83,7 @@ python scripts/pattern.py block all --table <id> --size 40       # draft from an
 python scripts/pattern.py shape <id> --measure G=190 --out dir   # draw a digitised shape, scaled
 python scripts/pattern.py digitize photo.png --id <id> --outline back --type bodice_back   # also .svg, .csv
 python scripts/pattern.py analyze <id>                           # measure a digitised pattern, list what is missing
+python scripts/pattern.py analyze spec.json --keys               # measure the garment of a spec; which value moves which dimension
 python scripts/pattern.py check                                  # validate every data file and entry
 ```
 

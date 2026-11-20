@@ -135,7 +135,7 @@ python skills/pattern-making/scripts/pattern.py digitize points.csv  --id my-jac
   word `corner`.
 
 **2. Name the points and say how it goes together**, in `skills/pattern-making/data/shapes/<id>.json`: the standard
-point names of each piece type, the seams between them, what every other edge is (fold, hem, free...), and the
+point names of each piece type ([TYPES.md](skills/pattern-making/data/TYPES.md)), the seams between them, what every other edge is (fold, hem, free...), and the
 body measurements the pattern was made for.
 
 **3. Let the skill measure it:**

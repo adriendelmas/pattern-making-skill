@@ -51,17 +51,25 @@ Go round the outline once, clockwise, starting at the top point nearest the cent
 Names are what seams and measurements hang on. A piece of a standard type uses the engine's names, so that
 "armhole depth" means the same thing in every pattern:
 
-| Type | Points to name |
+| Type | The piece |
 |---|---|
-| `bodice_back`, `bodice_front` | `center_neck`, `neck` (shoulder neck point), `shoulder` (shoulder tip), `underarm`, `side_waist`, `center_waist`; `across` when the pattern marks it |
-| `sleeve` | `cap` (top of the cap), `back_underarm`, `back_wrist`, `front_wrist`, `front_underarm` |
-| `skirt_front`, `skirt_back` | `center_waist`, `side_waist`, `hip`, `side_hem`, `center_hem` |
-| `trousers_front`, `trousers_back` | `center_waist`, `side_waist`, `hip`, `outer_hem`, `inner_hem`, `crotch`, `center_hip` |
-| `collar` | `cb_neck`, `front_neck`, `cb_top` |
-| `other` | every corner and notch, named for what it meets (`pocket_top_left`, `side_notch`) |
+| `bodice_back`, `bodice_front` | back and front of anything worn on the torso, to the waist or to the hem: block, shirt, jacket, coat, with a set-in, raglan or cut-on sleeve, with or without a lapel |
+| `princess_front`, `princess_side_front`, `princess_side_back`, `princess_back` | the four panels of an armhole princess line |
+| `sleeve`, `sleeve_top`, `sleeve_under`, `sleeve_raglan` | one-piece sleeve; top and under sleeve of a tailored sleeve; raglan sleeve |
+| `skirt_front`, `skirt_back`, `circle_skirt` | straight or shaped skirt; panel of a circle skirt |
+| `trousers_front`, `trousers_back` | trouser legs |
+| `collar`, `collar_stand`, `hood` | collar or fall, separate stand, half hood |
+| `glove_trank`, `glove_thumb`, `glove_thumb_hole`, `glove_fourchette` | the pieces of a glove |
+| `other` | everything else (pocket, cuff, placket, facing, gusset): name every corner and notch for what it meets (`top_left`, `side_notch`) |
+
+[TYPES.md](TYPES.md) lists, for each type, the points to name and every dimension the skill measures from them.
+Name every point of that list your piece has: a dimension whose points are missing is not measured. When the
+centre line does not run along the piece (a lapel front, a wrap), give one point of it as a mark:
+`"marks": {"center_front": {"outline": "front", "p": [x, y]}}`.
 
 Lowercase, words joined by underscores. Darts: `dart` for the tip (or `waist_dart`, `side_dart`), its legs
-`<tip>_1` and `<tip>_2`.
+`<tip>_1` and `<tip>_2`. A dart drawn inside the piece (a fish dart at the waist) is not on the outline: give its
+four points under `inner_darts` of the outline, `{"name": "waist_dart", "points": [top, one side, bottom, other side]}`.
 
 ### 4. Say how it goes together
 
@@ -75,8 +83,9 @@ Lowercase, words joined by underscores. Darts: `dart` for the tip (or `waist_dar
   `references/measurements.md` (`bust`, `waist`, `hip`, `neck`...). The analysis computes the ease from them.
 - `parameters`: any dimension a pattern maker would adjust that the standard types do not measure:
   `{"name": "pocket_width", "measure": ["dist", "pocket", "top_left", "top_right"], "what": "pocket mouth"}`.
-  Measures: `dx`, `dy`, `dist`, `path` (along the outline), `seamline` (along the outline, dart legs left out),
-  `angle`.
+  Measures: `dx`, `dy`, `dist`, `path` (along the outline, the shorter way round between the two points),
+  `seamline` (the same, dart legs left out), `angle`, `perp` (distance from a point square to a line:
+  `["perp", "front", "lapel_point", "break>gorge_roll"]`).
 
 ### 5. Let the skill measure it, and check against the paper
 

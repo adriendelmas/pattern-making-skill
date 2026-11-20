@@ -1,0 +1,19 @@
+{
+  "id": "in-seam-pocket",
+  "kind": "construction",
+  "applies_to": "pocket.in-seam",
+  "default": true,
+  "title": "In-seam pocket",
+  "unit": "cm",
+  "values": {"top": 6.0, "length": 17.0},
+  "doc": {"top": "top of the opening below the waist, along the seam", "length": "length of the opening"},
+  "provenance": {
+    "source": "references/techniques (pockets), values the engine drafted with before they were moved to data",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-20",
+    "notes": "Common trade values; not compared to a published draft."
+  }
+}

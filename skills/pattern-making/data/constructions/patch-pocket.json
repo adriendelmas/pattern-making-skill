@@ -1,0 +1,26 @@
+{
+  "id": "patch-pocket",
+  "kind": "construction",
+  "applies_to": "pocket.patch",
+  "default": true,
+  "title": "Patch pocket",
+  "unit": "cm",
+  "values": {"w": 17.0, "h": 19.0, "facing": 4.0, "r": 3.0, "x": 4.0, "y": 3.0},
+  "doc": {
+    "w": "width",
+    "h": "height below the fold of its top facing",
+    "facing": "top facing, folded inside",
+    "r": "radius of the bottom corners",
+    "x": "from the centre front to its front edge",
+    "y": "top edge below the waist"
+  },
+  "provenance": {
+    "source": "references/techniques (pockets), values the engine drafted with before they were moved to data",
+    "confidence": "practice",
+    "rights": "Values compiled by the project, MIT like the code",
+    "extraction": {"method": "compiled"},
+    "contributors": ["Adrien Delmas"],
+    "added": "2026-11-20",
+    "notes": "Common trade values; not compared to a published draft."
+  }
+}

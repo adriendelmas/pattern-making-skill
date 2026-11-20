@@ -1017,8 +1017,17 @@ def block_glove(h, stretch_ease=2.0):
     # from the side edge to a dot takes the flap; two notches on the other side bound the part sewn to the flap.
     shape = library.load("shape", "bolton-thumb")
     sc = G / float(shape["reference"]["G"])
+    # The thumb follows its own measures: against the table's hand of the same girth, T_g widens the thumb and its
+    # hole, T_o and T_p lengthen the thumb above the hole by their mean difference. A hand of the table changes nothing.
+    kx, ky, longer = 1.0, 1.0, 0.0
+    _, tb = library.body_table("hand", "glove-hand")
+    if "grade" in tb:   # ponytail: a hand table given as a size chart has no "hand of the same girth"; the thumb then follows G alone
+        std = library.standard("hand", tb["reference_size"] + (G - tb["base"]["G"]) / tb["grade"]["G"] * tb["size_step"], "glove-hand")
+        kx, longer = h["T_g"] / std["T_g"], (h["T_o"] + h["T_p"] - std["T_o"] - std["T_p"]) / 2
+    y_hole = dict((q["name"], q["p"][1]) for q in shape["outlines"]["thumb"]["points"])["N1"]   # the notch: above it the thumb, below it its base
+    tw = lambda q: (q[0] * kx, q[1] * ky if q[1] <= y_hole else y_hole * ky + q[1] - y_hole)
     TLh = (Wb + 2 * sc, crotch_p[("I", "M")] - 40 * sc)
-    hp = lambda q: [TLh[0] + q[0] * sc, TLh[1] - q[1] * sc]           # shape file: mm, y down from the hole's top left
+    hp = lambda q: [TLh[0] + q[0] * sc * kx, TLh[1] - q[1] * sc]      # shape file: mm, y down from the hole's top left
     hole = [dict({"name": n["name"], "p": hp(n["p"])}, **({"c": [hp(c) for c in n["c"]]} if "c" in n else {}))
             for n in shape["outlines"]["hole"]["nodes"]]
     hole_piece = {"outline": hole}
@@ -1028,7 +1037,11 @@ def block_glove(h, stretch_ease=2.0):
     slit_target = hl["h_TR"] * ease
 
     # thumb outline of the shape file (unit = thumb height, x from the fold axis, y down from the top of the lobes)
-    T = {q["name"]: tuple(q["p"]) for q in shape["outlines"]["thumb"]["points"]}
+    tpl = [(q["name"], (q["p"][0] * kx, q["p"][1])) for q in shape["outlines"]["thumb"]["points"]]
+    base = [q for _, q in tpl][[n for n, _ in tpl].index("N1"):[n for n, _ in tpl].index("Ps") + 1]
+    # mm per template unit, from the base that is sewn round the hole (its chord length: within a few % of the curve's)
+    ky = 1 + longer / (y_hole * sum(seg_targets) / sum(dist(a_, b_) for a_, b_ in zip(base, base[1:])))
+    T = {q["name"]: tw(q["p"]) for q in shape["outlines"]["thumb"]["points"]}
     order = [q["name"] for q in shape["outlines"]["thumb"]["points"]] + ["C"]
     pts_ = [T[k] for k in order]
 
@@ -1092,7 +1105,7 @@ def block_glove(h, stretch_ease=2.0):
         th_o.append({"name": a, "p": list(D[nodes_i[a]]), "c": fit_seg(nodes_i[a], nodes_i[b])})
     # thumb slit: from the lower lip at Ps inward to the dot, back to the upper lip
     Ps, Ps2 = D[nodes_i["t_Ps"]], D[nodes_i["t_Ps2"]]
-    dot = shape["marks"]["dot"]["p"]
+    dot = tw(shape["marks"]["dot"]["p"])
     dtpl = (dot[0] * ksc, -dot[1] * ksc)                 # dot of the template
     # end of the thumb slit: both lips match the trank slit lips (circles round Ps and Ps2), on the dot's side
     r1, r2 = slit_target, hl["h_D"] * ease
@@ -1186,6 +1199,7 @@ def block_glove(h, stretch_ease=2.0):
               check("Glove: thumb edges round the hole = hole edges + 3 % (mm)", thumb_base_len, drop_len * ease, 0.5),
               check("Glove: thumb tip seam, lobe edges differ by (mm)", abs(tip_pair[0] - tip_pair[1]), 0.0, 4.0),
               check("Glove: thumb tip seam, side edges differ by (mm)", abs(tip_pair[2] - tip_pair[3]), 0.0, 6.0),
+              check("Glove: hand length - (middle finger base + middle finger) (info, mm)", h["HL"] - h["h_M"] - h["F_M"]),
               check("Glove: fourchette width at mid-finger (info, mm)", fw),
               check("Glove: thumb hole perimeter (info, mm)", 10 * length(outline(hole_p)))]
     return {"pieces": [trank, thumb_p] + arms, "checks": checks, "seams": seams}
@@ -2249,6 +2263,52 @@ def test():
     assert [d_["name"] for d_ in an["pieces"]["Bodice back"]["darts"]] == ["dart"]
     blk["outlines"]["Sleeve"]["nodes"] = [dict(x, name="top") if x["name"] == "cap" else x for x in blk["outlines"]["Sleeve"]["nodes"]]
     assert any("points to name: cap" in x for x in library.analyze(blk)["problems"]), "a typed piece needs its standard points"
+    # the engine's own garments are measured by the same rules: a notched front has no centre neck point, so the
+    # centre line is a mark; the lapel is measured square to the roll line; a tailored sleeve is two typed pieces
+    ex = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "examples")
+    with open(os.path.join(ex, "notched-lapel-jacket", "jacket_fitted.json"), encoding="utf-8") as f:
+        jk = json.load(f)
+    jsh = library.garment_shape(jk, os.path.join(ex, "notched-lapel-jacket"), "jacket_fitted")
+    ja = library.analyze(jsh)
+    assert ja["problems"] == [], ja["problems"]
+    assert [ja["pieces"][x]["type"] for x in ("Front", "Top sleeve", "Under sleeve", "Collar")] == ["bodice_front", "sleeve_top", "sleeve_under", "collar"]
+    jf = library._flat(ja)
+    assert abs(jf["Front.lapel_width"] - garment.merged(jk)["collar"]["lapel"]) < 0.05, jf["Front.lapel_width"]
+    assert abs(jf["finished_bust"] - 2 * (jf["Front.width_at_underarm"] + jf["Back.width_at_underarm"])) < 1e-6
+    assert "center_front" in jsh["marks"] and abs(jf["cap_ease"] - (jf["cap_total"] - jf["armhole_total"])) < 1e-6
+    sq_o = library.Outline({"outline": [{"name": "a", "p": [0, 0]}, {"name": "b", "p": [4, 0]}, {"name": "c", "p": [4, 3]}, {"name": "d", "p": [0, 3]}]}, {"m": [1, 1]})
+    assert abs(sq_o.measure("perp", "c", ("a", "b")) - 3) < 1e-9 and sq_o.pick("zz|m|a") == "m" and sq_o.resolve("path", "a", "m") is None
+    msh = {"id": "t-m", "unit": "cm", "unlisted_edges": "free", "outlines": {"o": {"type": "other", "nodes": sq_o.nodes}},
+           "seams": [["o", "a", "b", "o", "a", "b"]]}              # an edge sewn to its own mirror: the short way, not round the piece
+    assert abs(library.analyze(msh)["seams"][0]["la"] - 4) < 1e-9 and library.analyze(msh)["pieces"]["o"]["open"] == ["b..a"]
+    with open(os.path.join(ex, "constructions", "kimono_top.json"), encoding="utf-8") as f:
+        km = json.load(f)
+    kd, ku = library.adjustables(km, os.path.join(ex, "constructions"))
+    assert any(k_ == "fit.side_ease" for k_, _, _ in kd["finished_bust"][1]) and ku["hem_allowance"] == "cut", (kd["finished_bust"], ku["hem_allowance"])
+    assert "`glove_thumb`" in library.render_types() and "lapel_width" in library.render_types()
+    # what was fixed in the engine is a value of the spec: centre back shaping, bust dart, waist dart end, vent
+    # extension, pocket values (from data/constructions/); the waist darts are deducted from the finished waist
+    assert abs(jf["finished_waist"] - 2 * (jf["Front.waist_less_darts"] + jf["Back.waist_less_darts"])) < 1e-6
+    assert abs(jf["Front.waist_less_darts"] - (jf["Front.width_at_waist"] - jf["Front.waist_dart.intake"])) < 1e-6
+    jv = json.loads(json.dumps(jk))
+    jv["fit"] = dict(jv.get("fit", {}), bust_dart=2.0, cb_waist=2.0, dart_below=11.0)
+    jv["sleeve"] = dict(jv.get("sleeve", {}), vent_width=4.0, ease=None)
+    jg = library._flat(library.analyze(library.garment_shape(jv, os.path.join(ex, "notched-lapel-jacket"), "j")))
+    assert abs(jg["Front.side_dart.intake"] - 2.0) < 0.01 and abs(jg["Back.cb_waist_shaping"] - 2.0) < 1e-6, jg["Front.side_dart.intake"]
+    assert abs(jg["Front.waist_dart.length"] - jf["Front.waist_dart.length"] + 3.0) < 1e-6
+    assert abs(jg["cap_ease"] - standard_ease("women")["sleeve_cap"]) < 0.05, jg["cap_ease"]      # null: the size table's
+    assert abs(jg["Front.side_seam_to_hem"] - jg["Back.side_seam_to_hem"]) < 0.11, "side seams still match with a smaller bust dart"
+    pkv = garment.merged({"pockets": [{"type": "welt", "where": "hip", "depth": 2.5}, {"type": "patch"}]})["pockets"]
+    assert pkv[0]["bag"] == 18.0 and pkv[0]["depth"] == 2.5 and pkv[0]["length"] == 10.5 and pkv[1]["r"] == 3.0, pkv
+    # the glove thumb follows the thumb's own measures; a hand of the table is unchanged
+    def thumb(own):
+        g_ = block_glove(glove_hand(7.5, own))
+        return library._flat(library.analyze(library.engine_shape(g_["pieces"], g_["seams"], {}))), g_["checks"]
+    (t0, _), h75 = thumb(None), glove_hand(7.5)
+    t1, c1 = thumb({"T_g": h75["T_g"] + 8, "T_o": h75["T_o"] + 10, "T_p": h75["T_p"] + 10})
+    assert 0.6 < t1["Thumb.width"] - t0["Thumb.width"] < 0.8 and 0.9 < t1["Thumb.length"] - t0["Thumb.length"] < 1.1, (t0, t1)
+    assert t1["Trank thumb_hole.width"] > t0["Trank thumb_hole.width"] and t1["Trank.width_palm"] == t0["Trank.width_palm"]
+    assert all(c_["tol"] is None or abs(c_["value"] - c_["expected"]) <= c_["tol"] for c_ in c1), "the wider thumb still fits its hole"
     bow = dict(shp, outlines={"o": {"points": [{"p": [0, 0]}, {"p": [4, 3.4]}, {"p": [4, 0]}, {"p": [0, 3]}]}})
     assert any("crosses itself" in x for x in library.validate("shape", "t-shape", bow)), "a bow-tie outline must be refused"
     assert any("TODO" in x for x in library.validate("shape", "t-shape", dict(shp, title="TODO: name it")))
@@ -2360,6 +2420,7 @@ def main():
     p = sp.add_parser("analyze", help="measure a digitised pattern: every standard dimension, seam and ease, and what is missing")
     p.add_argument("shape", help="id of a shape of data/shapes/, or the path of a shape file")
     p.add_argument("--measure", action="append", help="k=v: analyse it scaled to another size")
+    p.add_argument("--keys", action="store_true", help="for a garment spec: which value of the spec moves which dimension")
     sp.add_parser("test")
     args = ap.parse_args()
     library.use_table(getattr(args, "table", None))
